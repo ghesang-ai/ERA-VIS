@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERA-VIS AI — Erafone Visibility Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo-wrap">
+      <div class="logo-row">
+        <div class="logo-icon">V</div>
+        <div>
+          <div class="logo-name">ERA-VIS <span class="ai-badge">AI</span></div>
+          <div class="logo-sub">Visibility Intelligence</div>
+        </div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-sec">Monitoring</div>
+      <button class="nav-btn active" data-page="dashboard"><span class="ico">&#x1F4CA;</span> Dashboard</button>
+      <button class="nav-btn" data-page="stores"><span class="ico">&#x1F3EA;</span> Data Toko</button>
+      <button class="nav-btn" data-page="leaderboard"><span class="ico">&#x1F3C6;</span> Leaderboard</button>
+      <div class="nav-sec">AI Agent</div>
+      <button class="nav-btn" data-page="reminder"><span class="ico">&#x1F4E8;</span> Auto Reminder<span class="nav-badge red" id="nav-badge-reminder"></span></button>
+      <button class="nav-btn" data-page="insights"><span class="ico">&#x1F9E0;</span> AI Insights<span class="nav-badge purple" id="nav-badge-insights"></span></button>
+      <button class="nav-btn" data-page="logs"><span class="ico">&#x1F4DD;</span> Activity Log</button>
+      <div class="nav-sec">Manage</div>
+      <button class="nav-btn" data-page="campaigns"><span class="ico">&#x1F4CB;</span> Campaigns</button>
+      <button class="nav-btn" data-page="settings"><span class="ico">&#x2699;</span> Settings</button>
+      <button class="nav-btn" data-page="guide"><span class="ico">&#x2753;</span> Setup Guide</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="agent-status"><span class="agent-pulse"></span> AI Agent Active</div>
+      ERA-VIS v2.0 AI
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="hamburger" id="hamburger">&#9776;</button>
+        <div class="topbar-titles">
+          <h1 id="page-title">Dashboard</h1>
+          <div class="topbar-sub" id="page-label">KPI + Progress Overview</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="last-sync" id="last-sync"><span class="status-dot online"></span>Last sync: —</div>
+        <button class="btn btn-sm" onclick="refreshAllData()">&#x21BB; Refresh</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ===== DASHBOARD ===== -->
+      <div class="page active" id="page-dashboard">
+        <div class="filter-row">
+          <select id="dash-campaign-select" style="font-weight:700;font-size:13px;padding:9px 16px"><option value="">-- Pilih Campaign --</option></select>
+          <span class="last-sync" id="dash-campaign-info"></span>
+        </div>
+
+        <div class="kpi-row" id="kpi-row">
+          <div class="kpi-card c-green"><div class="kpi-label">Toko Ikut</div><div class="kpi-value" id="kpi-ikut">—</div><div class="kpi-sub" id="kpi-ikut-sub">Dialokasi campaign</div></div>
+          <div class="kpi-card c-blue"><div class="kpi-label">Total Master</div><div class="kpi-value" id="kpi-total">—</div><div class="kpi-sub">Seluruh toko</div></div>
+          <div class="kpi-card c-teal"><div class="kpi-label">Sudah Submit</div><div class="kpi-value" id="kpi-done">—</div><div class="kpi-sub">Upload selesai</div></div>
+          <div class="kpi-card c-red"><div class="kpi-label">Belum Submit</div><div class="kpi-value" id="kpi-notdone">—</div><div class="kpi-sub">Belum upload</div></div>
+          <div class="kpi-card c-gold"><div class="kpi-label">Compliance</div><div class="kpi-value" id="kpi-rate">—</div><div class="kpi-sub">Rate kepatuhan</div></div>
+          <div class="kpi-card c-purple"><div class="kpi-label">Health Score</div><div class="kpi-value" id="kpi-health">—</div><div class="kpi-sub">AI score</div></div>
+          <div class="kpi-card c-orange"><div class="kpi-label">Reminder</div><div class="kpi-value" id="kpi-reminders">0</div><div class="kpi-sub">WA terkirim</div></div>
+        </div>
+
+        <!-- Executive Summary + Action Zone -->
+        <div class="grid-2" id="exec-zone" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-head"><span class="card-title">Executive Summary</span><span class="ai-badge">AI</span></div>
+            <div class="card-body">
+              <div id="exec-headline" style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:14px;line-height:1.3">Pilih campaign untuk melihat summary</div>
+              <div class="grid-3">
+                <div class="exec-col"><div class="exec-col-label">&#x1F4CC; Kondisi</div><div class="exec-col-value" id="exec-what">—</div></div>
+                <div class="exec-col"><div class="exec-col-label">&#x1F50D; Analisis</div><div class="exec-col-value" id="exec-why">—</div></div>
+                <div class="exec-col"><div class="exec-col-label">&#x26A1; Tindakan</div><div class="exec-col-value" id="exec-action">—</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Action Zone</span>
+              <span class="nav-badge red" id="action-badge" style="position:relative;right:auto;font-size:10px;padding:1px 7px;border-radius:10px;font-weight:700"></span>
+            </div>
+            <div class="card-body" id="action-zone-body">
+              <div class="empty-state" style="padding:16px 0"><p>Pilih campaign untuk melihat prioritas aksi</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress + Health | Regions + Recent -->
+        <div class="grid-side" id="dash-main-grid">
+          <div>
+            <div class="card">
+              <div class="card-head"><span class="card-title">Overall Progress</span></div>
+              <div class="card-body">
+                <div class="progress-ring-wrap">
+                  <svg viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#E2E8F0" stroke-width="10"/>
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--teal)" stroke-width="10" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16" transform="rotate(-90 60 60)" id="progress-ring"/>
+                    <text x="60" y="56" text-anchor="middle" class="progress-text" id="progress-pct">—</text>
+                    <text x="60" y="72" text-anchor="middle" class="progress-sub">compliance</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><span class="card-title">Campaign Health</span><span class="ai-badge">AI</span></div>
+              <div class="card-body" id="health-body"><div class="health-wrap" id="health-content"></div></div>
+            </div>
+          </div>
+          <div>
+            <div class="card"><div class="card-head"><span class="card-title">Per Region</span></div><div class="card-body"><div class="region-grid" id="region-grid"></div></div></div>
+            <div class="card">
+              <div class="card-head"><span class="card-title">Submission Terbaru</span><span class="last-sync" id="recent-count"></span></div>
+              <div class="card-body"><div class="tbl-wrap"><table><thead><tr><th>Timestamp</th><th>Kode</th><th>Nama Store</th><th>Region</th><th>Foto</th></tr></thead><tbody id="recent-tbody"></tbody></table></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="empty-state" id="dash-empty" style="display:none"><div class="ico">&#x1F4CA;</div><p>Pilih campaign di dropdown atas untuk mulai</p></div>
+      </div>
+
+      <!-- ===== DATA TOKO ===== -->
+      <div class="page" id="page-stores">
+        <div class="filter-row">
+          <select id="store-campaign-select" style="font-weight:600"><option value="">-- Pilih Campaign --</option></select>
+          <select id="store-region-filter"><option value="">Semua Region</option></select>
+          <select id="store-status-filter"><option value="">Semua Status</option><option value="DONE">DONE</option><option value="NOT DONE">NOT DONE</option></select>
+          <select id="store-city-filter"><option value="">Semua City</option></select>
+          <div class="search-wrap"><input type="text" id="store-search" placeholder="Cari toko..."></div>
+          <button class="btn btn-sm btn-teal" onclick="exportExcel()">&#x2B07; Export Excel</button>
+        </div>
+        <div id="participation-summary" style="display:none"></div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Daftar Toko</span><span class="last-sync" id="store-count"></span></div>
+          <div class="card-body"><div class="tbl-wrap">
+            <table><thead><tr><th>No</th><th>Region</th><th>Plant Code</th><th>Nama Toko</th><th>Status</th><th>City</th><th>Dokumentasi</th></tr></thead><tbody id="store-tbody"></tbody></table>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- ===== LEADERBOARD ===== -->
+      <div class="page" id="page-leaderboard">
+        <div class="filter-row"><select id="lb-campaign-select" style="font-weight:600"><option value="">-- Pilih Campaign --</option></select></div>
+        <div class="card" id="lb-podium-card" style="display:none">
+          <div class="card-head"><span class="card-title">&#x1F3C6; Top 3 Region</span><span class="ai-badge">PODIUM</span></div>
+          <div class="card-body" id="lb-podium"></div>
+        </div>
+        <div class="grid-2">
+          <div class="card"><div class="card-head"><span class="card-title">Region Leaderboard</span><span class="ai-badge">RANKED</span></div><div class="card-body" id="lb-region-body"></div></div>
+          <div class="card"><div class="card-head"><span class="card-title">City Performance</span></div><div class="card-body" id="lb-city-body"></div></div>
+        </div>
+      </div>
+
+      <!-- ===== AUTO REMINDER ===== -->
+      <div class="page" id="page-reminder">
+        <div class="filter-row">
+          <select id="rem-campaign-select" style="font-weight:600"><option value="">-- Pilih Campaign --</option></select>
+          <select id="rem-region-filter" onchange="renderReminderTable()"><option value="">Semua Region</option></select>
+          <select id="rem-city-filter" onchange="renderReminderTable()"><option value="">Semua City</option></select>
+          <select id="rem-sl-filter" onchange="renderReminderTable()"><option value="">Semua SL</option><option value="ada">Ada No HP</option><option value="belum">Belum Ada No HP</option></select>
+          <button class="btn btn-sm btn-purple" onclick="scanAndRemind()">&#x1F916; Scan &amp; Kirim Reminder</button>
+          <button class="btn btn-sm btn-orange" onclick="sendBulkReminder()">&#x1F4E8; Blast Terpilih</button>
+        </div>
+        <div class="reminder-config">
+          <div class="reminder-level rl-green"><div class="reminder-level-head"><div class="reminder-level-icon">&#x1F44B;</div><div class="reminder-level-title">Level 1 — Gentle</div></div><div class="reminder-level-desc">Hari ke-1 s/d 2. Pesan ramah.</div></div>
+          <div class="reminder-level rl-orange"><div class="reminder-level-head"><div class="reminder-level-icon">&#x26A0;</div><div class="reminder-level-title">Level 2 — Urgent</div></div><div class="reminder-level-desc">Hari ke-3 s/d 4. Pesan tegas.</div></div>
+          <div class="reminder-level rl-red"><div class="reminder-level-head"><div class="reminder-level-icon">&#x1F6A8;</div><div class="reminder-level-title">Level 3 — Escalate</div></div><div class="reminder-level-desc">Hari ke-5+. Auto-escalate.</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Toko Belum Submit</span><span class="last-sync" id="rem-count"></span></div>
+          <div class="card-body"><div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="rem-check-all" onchange="toggleAllReminder(this)"></th><th>Plant Code</th><th>Nama Toko</th><th>Region</th><th>City</th><th>Store Leader</th><th>No. HP</th><th>Level</th><th>Aksi</th></tr></thead><tbody id="rem-tbody"></tbody></table></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Preview Pesan WhatsApp</span></div>
+          <div class="card-body"><div class="tabs"><button class="tab active" onclick="switchMsgTab(this,1)">Level 1</button><button class="tab" onclick="switchMsgTab(this,2)">Level 2</button><button class="tab" onclick="switchMsgTab(this,3)">Level 3</button></div><div class="msg-preview" id="msg-preview"></div></div>
+        </div>
+      </div>
+
+      <!-- ===== AI INSIGHTS ===== -->
+      <div class="page" id="page-insights">
+        <div class="filter-row">
+          <select id="ins-campaign-select" style="font-weight:600"><option value="">-- Pilih Campaign --</option></select>
+          <button class="btn btn-sm btn-purple" onclick="generateInsights()">&#x1F9E0; Generate AI Insights</button>
+        </div>
+        <div id="insights-container"></div>
+        <div class="empty-state" id="insights-empty"><div class="ico">&#x1F9E0;</div><p>Pilih campaign lalu klik Generate</p></div>
+      </div>
+
+      <!-- ===== ACTIVITY LOG ===== -->
+      <div class="page" id="page-logs">
+        <div class="filter-row">
+          <select id="log-filter-type"><option value="">Semua</option><option value="reminder">Reminder</option><option value="escalation">Escalation</option><option value="system">System</option></select>
+          <button class="btn btn-sm btn-danger" onclick="clearLogs()">Clear</button>
+        </div>
+        <div class="card"><div class="card-head"><span class="card-title">Activity Log</span><span class="last-sync" id="log-count"></span></div><div class="card-body" id="log-body"></div></div>
+      </div>
+
+      <!-- ===== CAMPAIGNS ===== -->
+      <div class="page" id="page-campaigns">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <p style="color:var(--muted);font-size:12.5px">Kelola campaign visibility Erafone</p>
+          <button class="btn btn-primary" onclick="openAddCampaign()">+ Tambah Campaign</button>
+        </div>
+        <div class="campaign-list" id="campaign-list"></div>
+        <div class="empty-state" id="campaigns-empty" style="display:none"><div class="ico">&#x1F4CB;</div><p>Belum ada campaign. Klik + Tambah Campaign untuk mulai.</p></div>
+      </div>
+
+      <!-- ===== SETTINGS ===== -->
+      <div class="page" id="page-settings">
+        <div class="grid-2">
+          <div>
+            <div class="card">
+              <div class="card-head"><span class="card-title">Master Toko (Referensi Semua Toko)</span></div>
+              <div class="card-body">
+                <div class="form-group"><label>Spreadsheet ID (Master Toko)</label><input type="text" id="set-master-sid" placeholder="Spreadsheet ID yang berisi SEMUA toko"><div class="hint">Sheet berisi daftar lengkap seluruh toko Erafone</div></div>
+                <div class="form-group"><label>Sheet Name</label><input type="text" id="set-master-sheet" value="MASTER GHS"></div>
+                <div class="form-group"><label>Header Row</label><input type="number" id="set-master-hr" value="6"></div>
+                <button class="btn btn-primary" onclick="saveMasterTokoSettings()">Simpan Master Toko</button>
+                <button class="btn btn-sm" onclick="testMasterToko()" style="margin-left:8px">Test Fetch</button>
+                <div id="master-toko-status" style="margin-top:8px;font-size:12px"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><span class="card-title">&#x1F464; Database Store Leader</span><span class="ai-badge" id="sldb-badge">—</span></div>
+              <div class="card-body">
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Upload file Excel Store Leader. No HP otomatis muncul di Auto Reminder. Untuk rotasi bulanan, cukup upload ulang.</p>
+                <div class="dropzone" id="sldb-dropzone" style="padding:16px 12px"
+                  onclick="document.getElementById('inp-sldb-file').click()"
+                  ondragover="event.preventDefault();this.classList.add('over')"
+                  ondragleave="this.classList.remove('over')"
+                  ondrop="handleSLDBDrop(event)">
+                  <div class="dropzone-icon" style="font-size:20px">&#x1F4C2;</div>
+                  <div class="dropzone-label" id="sldb-dropzone-label" style="font-size:12px">Drag &amp; drop atau klik — file Excel Store Leader</div>
+                </div>
+                <input type="file" id="inp-sldb-file" accept=".xlsx,.xls" style="display:none" onchange="handleSLDBFile(this.files[0])">
+                <div id="sldb-status" style="margin-top:8px;font-size:12px"></div>
+                <div id="sldb-preview-wrap" style="display:none;margin-top:10px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                    <span style="font-size:11.5px;font-weight:700">Preview Database</span>
+                    <input type="text" id="sldb-search" placeholder="Cari toko..." style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;width:160px" oninput="renderSLDBPreview()">
+                  </div>
+                  <div class="tbl-wrap" style="max-height:220px;overflow-y:auto">
+                    <table style="font-size:11.5px"><thead><tr><th>Plant Code</th><th>Nama Toko</th><th>Store Leader</th><th>No HP</th></tr></thead><tbody id="sldb-tbody"></tbody></table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><span class="card-title">Fonnte WhatsApp API</span></div>
+              <div class="card-body">
+                <div class="form-group"><label>API Token</label><input type="password" id="set-fonnte-token" placeholder="Token dari fonnte.com"></div>
+                <div class="form-group"><label>Country Code</label><input type="text" id="set-country-code" value="+62"></div>
+                <button class="btn btn-primary" onclick="saveSettings()">Simpan</button>
+                <button class="btn btn-sm" onclick="testFonnte()" style="margin-left:8px">Test Koneksi</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Template Pesan Reminder</span></div>
+            <div class="card-body">
+              <div class="form-group"><label>Level 1 (Gentle)</label><textarea id="set-msg-1">Halo {nama_store} ({kode_store})
+
+Reminder dari Tim VMD: Campaign *{campaign}* sedang berjalan.
+
+Mohon segera upload foto dokumentasi visibility melalui link berikut:
+{link_form}
+
+Terima kasih atas kerjasamanya!</textarea></div>
+              <div class="form-group"><label>Level 2 (Urgent)</label><textarea id="set-msg-2">*URGENT — {nama_store}* ({kode_store})
+
+Store Anda *BELUM* submit dokumentasi campaign *{campaign}*.
+
+Segera upload sekarang:
+{link_form}
+
+Deadline sudah dekat. Mohon segera ditindaklanjuti.</textarea></div>
+              <div class="form-group"><label>Level 3 (Escalation)</label><textarea id="set-msg-3">*ESCALATION NOTICE*
+
+Store *{nama_store}* ({kode_store}) — Region {region}, {city}
+belum submit dokumentasi *{campaign}* setelah 5+ hari.
+
+Mohon Area Manager segera follow up.
+Link form: {link_form}</textarea></div>
+              <button class="btn btn-primary" onclick="saveSettings()">Simpan Template</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== GUIDE ===== -->
+      <div class="page" id="page-guide">
+        <div class="card"><div class="card-head"><span class="card-title">Setup Guide</span></div><div class="card-body">
+          <div class="guide-step"><div class="guide-num">1</div><div class="guide-content"><h3>Terima Email Campaign</h3><p>Simpan file Excel attachment dari email (berisi daftar toko alokasi). Salin juga link Google Sheet dari email.</p></div></div>
+          <div class="guide-step"><div class="guide-num">2</div><div class="guide-content"><h3>Tambah Campaign di ERA-VIS</h3><p>Klik <strong>Campaigns &rarr; + Tambah Campaign</strong>. Pilih mode <strong>"Upload Excel"</strong>, drag &amp; drop file Excel dari email, lalu paste link Google Sheet. Selesai.</p></div></div>
+          <div class="guide-step"><div class="guide-num">3</div><div class="guide-content"><h3>Publish Google Spreadsheet</h3><p>Agar ERA-VIS bisa baca status submit: buka Google Sheet &rarr; File &rarr; Share &rarr; <strong>Publish to web &rarr; CSV &rarr; Publish</strong>.</p></div></div>
+          <div class="guide-step"><div class="guide-num">4</div><div class="guide-content"><h3>Setup Fonnte (WhatsApp Reminder)</h3><p>Settings &rarr; masukkan API Token dari <span class="code-inline">fonnte.com</span> untuk aktifkan Auto Reminder.</p></div></div>
+          <div style="margin-top:20px;padding:16px;background:var(--teal-bg);border-radius:var(--r-sm);border:1px solid #6EE7B7">
+            <strong style="color:var(--teal)">&#x26A1; Flow Otomatis — Tanpa Buat Google Sheet Baru</strong>
+            <p style="font-size:12.5px;color:var(--ink2);margin-top:6px">ERA-VIS membaca daftar toko langsung dari <strong>file Excel attachment email</strong>. Google Sheet hanya dipakai untuk membaca response form. Setiap campaign baru = upload Excel + paste 1 link.</p>
+          </div>
+        </div></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ===== MODAL: CAMPAIGN ===== -->
+<div class="modal-overlay" id="modal-add"><div class="modal">
+  <div class="modal-head"><h2 id="modal-add-title">Tambah Campaign</h2><button class="modal-close" onclick="closeModal('modal-add')">&times;</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="edit-campaign-id">
+    <input type="hidden" id="inp-mode" value="excel">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-btn-excel" onclick="switchCampaignMode('excel')">&#x1F4CE; Upload Excel (Baru)</button>
+      <button class="mode-btn" id="mode-btn-sheet" onclick="switchCampaignMode('sheet')">&#x1F517; Google Sheets (Lama)</button>
+    </div>
+    <div class="form-group"><label>Nama Campaign</label><input type="text" id="inp-name" placeholder="Hanging Mobile April 2026"></div>
+    <div id="mode-excel-fields">
+      <div class="form-group">
+        <label>Upload File Excel (dari email)</label>
+        <div class="dropzone" id="dropzone"
+          onclick="document.getElementById('inp-excel-file').click()"
+          ondragover="event.preventDefault();this.classList.add('over')"
+          ondragleave="this.classList.remove('over')"
+          ondrop="handleExcelDrop(event)">
+          <div class="dropzone-icon">&#x1F4C2;</div>
+          <div class="dropzone-label" id="dropzone-label">Klik atau drag &amp; drop file Excel di sini</div>
+          <div class="dropzone-hint">Format: .xlsx — file alokasi toko dari email campaign</div>
+        </div>
+        <input type="file" id="inp-excel-file" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(this.files[0])">
+        <div id="excel-sheet-select" style="display:none;margin-top:8px">
+          <label style="font-size:11.5px;color:var(--muted);font-weight:600">Pilih Sheet yang berisi daftar toko (bisa lebih dari 1):</label>
+          <div class="sheet-checklist" id="sheet-checklist"></div>
+          <div id="excel-preview" style="margin-top:8px;font-size:11.5px;color:var(--teal);font-weight:600"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>Link Google Sheet (untuk cek status submit)</label><input type="text" id="inp-response-sheet" placeholder="https://docs.google.com/spreadsheets/d/.../edit"><div class="hint">Sheet dari email — tempat form responses masuk.</div></div>
+      <div class="form-group"><label>Nama Sheet Response</label><input type="text" id="inp-import-sheet-excel" value="IMPORTING"></div>
+    </div>
+    <div id="mode-sheet-fields" style="display:none">
+      <div class="form-group"><label>Spreadsheet ID</label><input type="text" id="inp-spreadsheet" placeholder="1MpGnsBYbL1f..."><div class="hint">Dari URL: docs.google.com/spreadsheets/d/<strong>ID</strong>/edit</div></div>
+      <div class="form-group"><label>Sheet — Master</label><input type="text" id="inp-master-sheet" value="MASTER GHS"></div>
+      <div class="form-group"><label>Sheet — Importing</label><input type="text" id="inp-import-sheet" value="IMPORTING"></div>
+      <div class="form-group"><label>Header Row</label><input type="number" id="inp-header-row" value="6"></div>
+    </div>
+    <div class="form-group"><label>Link Google Form</label><input type="text" id="inp-form-link" placeholder="https://forms.gle/..."></div>
+    <div class="form-group"><label>Deadline</label><input type="date" id="inp-deadline"></div>
+    <div class="form-group"><label>Status</label><select id="inp-status"><option value="active">Active</option><option value="ended">Ended</option></select></div>
+  </div>
+  <div class="modal-foot"><button class="btn" onclick="closeModal('modal-add')">Batal</button><button class="btn btn-primary" onclick="saveCampaign()">Simpan</button></div>
+</div></div>
+
+<!-- ===== MODAL: SEND REMINDER ===== -->
+<div class="modal-overlay" id="modal-send"><div class="modal">
+  <div class="modal-head"><h2>Kirim Reminder</h2><button class="modal-close" onclick="closeModal('modal-send')">&times;</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label>Toko</label><input type="text" id="send-store-name" readonly></div>
+    <div class="form-group"><label>No. WhatsApp</label><input type="text" id="send-phone" placeholder="08xxxxxxxxxx"></div>
+    <div class="form-group"><label>Level</label><select id="send-level"><option value="1">Level 1 — Gentle</option><option value="2">Level 2 — Urgent</option><option value="3">Level 3 — Escalation</option></select></div>
+    <div class="form-group"><label>Preview</label><div class="msg-preview" id="send-preview"></div></div>
+  </div>
+  <div class="modal-foot"><button class="btn" onclick="closeModal('modal-send')">Batal</button><button class="btn btn-green" onclick="confirmSendReminder()">Kirim via WhatsApp</button></div>
+</div></div>
+
+<!-- ===== JS FILES ===== -->
+<script src="js/config.js"></script>
+<script src="js/api.js?v=20260406"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/stores.js?v=20260406"></script>
+<script src="js/campaigns.js"></script>
+
+<!-- ===== INIT ===== -->
+<script>
+'use strict';
+
+// ── GLOBAL STATE ──────────────────────────────────────────────────
+let campaigns        = JSON.parse(localStorage.getItem(SK.campaigns) || '[]');
+let dataCache        = JSON.parse(localStorage.getItem(SK.cache)     || '{}');
+let settings         = JSON.parse(localStorage.getItem(SK.settings)  || '{}');
+let activityLogs     = JSON.parse(localStorage.getItem(SK.logs)      || '[]');
+let reminderHistory  = JSON.parse(localStorage.getItem(SK.reminders) || '{}');
+let masterTokoConfig = JSON.parse(localStorage.getItem(SK.master)    || '{}');
+let storeLeaderDB    = JSON.parse(localStorage.getItem(SK.sldb)      || '{}');
+
+let currentMasterData = [], currentImportData = [], allMasterToko = [];
+let currentSendStore  = null;
+
+function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+// ── NAV ───────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.page;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
+    document.getElementById('page-' + p).classList.add('active');
+    document.getElementById('page-title').textContent = PAGE_TITLES[p] || p;
+    const lbl = document.getElementById('page-label');
+    if (lbl) lbl.textContent = PAGE_SUBLABELS[p] || '';
+    if (p === 'campaigns') renderCampaignList();
+    if (p === 'logs')      renderLogs();
+    if (p === 'settings')  { loadSettings(); initSLDBSettings(); }
+    closeSidebar();
+  });
+});
+
+document.getElementById('hamburger').addEventListener('click', () =>
+  document.getElementById('sidebar').classList.toggle('open')
+);
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); }
+
+// ── CAMPAIGN SELECT LISTENERS ─────────────────────────────────────
+document.getElementById('dash-campaign-select').addEventListener('change', function() {
+  if (this.value) loadCampaignData(this.value); else clearDashboard();
+});
+document.getElementById('store-campaign-select').addEventListener('change', function() {
+  if (this.value) loadStoreData(this.value);
+});
+document.getElementById('lb-campaign-select').addEventListener('change', function() {
+  if (this.value) loadLeaderboard(this.value);
+});
+document.getElementById('rem-campaign-select').addEventListener('change', function() {
+  if (this.value) loadReminderPage(this.value);
+});
+document.getElementById('ins-campaign-select').addEventListener('change', function() {
+  if (this.value) generateInsights();
+});
+
+// ── LOG FILTER ────────────────────────────────────────────────────
+document.getElementById('log-filter-type').addEventListener('change', renderLogs);
+
+// ── STORE + SEND MODAL LISTENERS ──────────────────────────────────
+initStoreListeners();
+initSendModalListeners();
+
+// ── SEED DEFAULT CAMPAIGN ─────────────────────────────────────────
+if (!campaigns.length) {
+  campaigns = DEFAULT_CAMPAIGNS.map(c => ({ ...c, createdAt: new Date().toISOString() }));
+  save(SK.campaigns, campaigns);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────
+populateAllSelects();
+renderCampaignList();
+loadSettings();
+
+const activeCampaign = campaigns.find(c => c.status !== 'ended');
+if (activeCampaign) {
+  document.getElementById('dash-campaign-select').value = activeCampaign.id;
+  loadCampaignData(activeCampaign.id);
+} else {
+  document.getElementById('dash-empty').style.display     = '';
+  document.getElementById('dash-main-grid').style.display = 'none';
+  document.getElementById('exec-zone').style.display      = 'none';
+}
+
+addLog('system', 'ERA-VIS AI v2.0 started');
+</script>
+</body>
+</html>

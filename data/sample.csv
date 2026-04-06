@@ -1,0 +1,36 @@
+ERA-VIS Sample Data,,,,,,,,
+Visibility Compliance — Multi-Month 2026,,,,,,,,
+Region 5 — Banten & DKI Barat,,,,,,,,
+Generated: 2026-04-06,,,,,,,,
+,,,,,,,,
+NO,REGION,PLANT_CODE,PLANT_DESC,CITY,NOMOR_RESI,DOKUMENTASI,STATUS,PENERIMA
+1,REG5-BANTEN,ST001,Erafone Ciledug ENM,Tangerang,JNE-001-FEB,https://drive.google.com/file/d/feb001,DONE,Andi Saputra
+2,REG5-BANTEN,ST002,Erafone Cipondoh,Tangerang,JNE-002-FEB,https://drive.google.com/file/d/feb002,DONE,Budi Hartono
+3,REG5-BANTEN,ST003,Erafone Serpong Paradise Walk,Tangerang Selatan,JNE-003-FEB,,DONE,Citra Lestari
+4,REG5-BANTEN,ST004,Erafone Serpong Rawabuntu,Tangerang Selatan,,,NOT DONE,
+5,REG5-BANTEN,ST005,Erafone Cisauk,Tangerang,JNE-005-FEB,https://drive.google.com/file/d/feb005,DONE,Deni Firmansyah
+6,REG5-BANTEN,ST006,Erafone Cadas,Tangerang,,,NOT DONE,
+7,REG5-BANTEN,ST007,Erafone Mayor Safei,Tangerang,JNE-007-FEB,https://drive.google.com/file/d/feb007,DONE,Eka Nugraha
+8,REG5-BANTEN,ST008,Erafone Cilegon,Cilegon,JNE-008-FEB,https://drive.google.com/file/d/feb008,DONE,Fajar Wibowo
+9,REG5-BANTEN,ST009,Erafone Serang,Serang,,,NOT DONE,
+10,REG5-BANTEN,ST010,Erafone Kemanggisan Utama,Jakarta Barat,JNE-010-FEB,https://drive.google.com/file/d/feb010,DONE,Gilang Pratama
+11,REG5-DKI,ST011,Erafone Binus Kebayoran Lama,Jakarta Selatan,JNE-011-FEB,https://drive.google.com/file/d/feb011,DONE,Hadi Santoso
+12,REG5-DKI,ST012,Erafone Rempoa,Jakarta Selatan,JNE-012-FEB,,DONE,Indah Permata
+13,REG5-DKI,ST013,Erafone Mangga Dua,Jakarta Pusat,,,NOT DONE,
+14,REG5-DKI,ST014,Erafone Taman Anggrek,Jakarta Barat,JNE-014-FEB,https://drive.google.com/file/d/feb014,DONE,Joko Widiastoro
+15,REG5-DKI,ST015,Erafone Grand Indonesia,Jakarta Pusat,JNE-015-FEB,https://drive.google.com/file/d/feb015,DONE,Kartika Sari
+16,REG5-DKI,ST016,Erafone ITC Permata Hijau,Jakarta Selatan,,,NOT DONE,
+17,REG5-DKI,ST017,Erafone Senayan City,Jakarta Pusat,JNE-017-FEB,https://drive.google.com/file/d/feb017,DONE,Lukman Hakim
+18,REG5-DKI,ST018,Erafone Emporium Pluit,Jakarta Utara,JNE-018-FEB,https://drive.google.com/file/d/feb018,DONE,Maya Dewi
+19,REG5-DKI,ST019,Erafone PIK Avenue,Jakarta Utara,,,NOT DONE,
+20,REG5-DKI,ST020,Erafone Kelapa Gading MKG,Jakarta Utara,JNE-020-FEB,https://drive.google.com/file/d/feb020,DONE,Nanda Kusuma
+21,REG5-BANTEN,ST021,Erafone Hampton Square Serpong,Tangerang Selatan,JNE-021-FEB,https://drive.google.com/file/d/feb021,DONE,Oscar Firmanto
+22,REG5-BANTEN,ST022,Erafone Bintaro Jaya Xchange,Tangerang Selatan,JNE-022-FEB,,DONE,Putri Anggraini
+23,REG5-BANTEN,ST023,Erafone Living World Alam Sutera,Tangerang Selatan,,,NOT DONE,
+24,REG5-DKI,ST024,Erafone Kota Kasablanka,Jakarta Selatan,JNE-024-FEB,https://drive.google.com/file/d/feb024,DONE,Rizki Maulana
+25,REG5-DKI,ST025,Erafone Pacific Place,Jakarta Selatan,JNE-025-FEB,https://drive.google.com/file/d/feb025,DONE,Sinta Rahayu
+26,REG5-DKI,ST026,Erafone Mal Kelapa Gading 3,Jakarta Utara,,,NOT DONE,
+27,REG5-BANTEN,ST027,Erafone Summarecon Mall Serpong,Tangerang,JNE-027-FEB,https://drive.google.com/file/d/feb027,DONE,Toni Setiawan
+28,REG5-BANTEN,ST028,Erafone Lippo Mall Puri,Jakarta Barat,JNE-028-FEB,https://drive.google.com/file/d/feb028,DONE,Umi Kalsum
+29,REG5-DKI,ST029,Erafone Central Park Mall,Jakarta Barat,,,NOT DONE,
+30,REG5-DKI,ST030,Erafone Gandaria City,Jakarta Selatan,JNE-030-FEB,https://drive.google.com/file/d/feb030,DONE,Vera Handayani
