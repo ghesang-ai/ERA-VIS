@@ -30,7 +30,6 @@
       <button class="nav-btn" data-page="leaderboard"><span class="ico">&#x1F3C6;</span> Leaderboard</button>
       <div class="nav-sec">AI Agent</div>
       <button class="nav-btn" data-page="reminder"><span class="ico">&#x1F4E8;</span> Auto Reminder<span class="nav-badge red" id="nav-badge-reminder"></span></button>
-      <button class="nav-btn" data-page="insights"><span class="ico">&#x1F9E0;</span> AI Insights<span class="nav-badge purple" id="nav-badge-insights"></span></button>
       <button class="nav-btn" data-page="logs"><span class="ico">&#x1F4DD;</span> Activity Log</button>
       <div class="nav-sec">Manage</div>
       <button class="nav-btn" data-page="campaigns"><span class="ico">&#x1F4CB;</span> Campaigns</button>
@@ -192,15 +191,6 @@
         </div>
       </div>
 
-      <!-- ===== AI INSIGHTS ===== -->
-      <div class="page" id="page-insights">
-        <div class="filter-row">
-          <select id="ins-campaign-select" style="font-weight:600"><option value="">-- Pilih Campaign --</option></select>
-          <button class="btn btn-sm btn-purple" onclick="generateInsights()">&#x1F9E0; Generate AI Insights</button>
-        </div>
-        <div id="insights-container"></div>
-        <div class="empty-state" id="insights-empty"><div class="ico">&#x1F9E0;</div><p>Pilih campaign lalu klik Generate</p></div>
-      </div>
 
       <!-- ===== ACTIVITY LOG ===== -->
       <div class="page" id="page-logs">
@@ -441,9 +431,6 @@ document.getElementById('lb-campaign-select').addEventListener('change', functio
 });
 document.getElementById('rem-campaign-select').addEventListener('change', function() {
   if (this.value) loadReminderPage(this.value);
-});
-document.getElementById('ins-campaign-select').addEventListener('change', function() {
-  if (this.value) generateInsights();
 });
 
 // ── LOG FILTER ────────────────────────────────────────────────────
