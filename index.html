@@ -206,6 +206,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px">
           <p style="color:var(--muted);font-size:12.5px">Kelola campaign visibility Erafone</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-teal" onclick="shareCampaignsUrl()" title="Salin link untuk dibagikan ke pengguna lain">&#x1F517; Bagikan Link</button>
             <button class="btn btn-sm" onclick="importCampaigns()" title="Import campaigns dari file JSON">&#x2B06; Import</button>
             <button class="btn btn-sm" onclick="exportCampaigns()" title="Export campaigns ke file JSON">&#x2B07; Export</button>
             <button class="btn btn-primary" onclick="openAddCampaign()">+ Tambah Campaign</button>
@@ -456,6 +457,29 @@ document.getElementById('log-filter-type').addEventListener('change', renderLogs
 // ── STORE + SEND MODAL LISTENERS ──────────────────────────────────
 initStoreListeners();
 initSendModalListeners();
+
+// ── AUTO-IMPORT VIA URL HASH (#import=...) ────────────────────────
+// Ketika user buka link yang di-share admin, campaign langsung masuk otomatis
+(function checkImportHash() {
+  const hash = location.hash;
+  if (!hash.startsWith('#import=')) return;
+  try {
+    const raw  = decodeURIComponent(escape(atob(hash.slice(8))));
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return;
+    let added = 0, updated = 0;
+    data.forEach(c => {
+      if (!c.id || !c.name) return;
+      const idx = campaigns.findIndex(x => x.id === c.id);
+      if (idx >= 0) { campaigns[idx] = c; updated++; }
+      else          { campaigns.push(c); added++; }
+    });
+    save(SK.campaigns, campaigns);
+    history.replaceState(null, '', location.pathname); // bersihkan URL
+    setTimeout(() => toast((added + updated) + ' campaign berhasil diimport otomatis!'), 500);
+    addLog('system', 'Auto-import ' + data.length + ' campaigns via share link');
+  } catch (e) { /* silent — hash bukan untuk import */ }
+})();
 
 // ── SEED DEFAULT CAMPAIGN ─────────────────────────────────────────
 if (!campaigns.length) {

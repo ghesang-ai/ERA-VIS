@@ -297,6 +297,57 @@ function saveCampaign() {
 }
 
 
+// ── SHARE CAMPAIGNS VIA URL ────────────────────────────────────────
+// Admin klik "Bagikan Link" → copy URL ke clipboard → kirim ke user via WhatsApp
+// User buka link → campaign auto-import tanpa perlu file
+function shareCampaignsUrl() {
+  try {
+    // Minify localStores untuk Excel campaigns agar URL tidak terlalu panjang
+    const data = campaigns.map(c => {
+      if (c.mode === 'excel' && c.localStores && c.localStores.length) {
+        return {
+          ...c,
+          localStores: c.localStores.map(s => ({
+            plantCode : s.plantCode,
+            plantDesc : s.plantDesc,
+            region    : s.region,
+            city      : s.city,
+            status    : s.status || ''
+          }))
+        };
+      }
+      return c;
+    });
+
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+    const url     = location.origin + location.pathname + '#import=' + encoded;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(
+        () => toast('Link disalin! Kirim ke pengguna via WhatsApp/email.'),
+        () => _fallbackCopyUrl(url)
+      );
+    } else {
+      _fallbackCopyUrl(url);
+    }
+    addLog('system', 'Share URL dibuat — ' + campaigns.length + ' campaigns');
+  } catch (e) {
+    toast('Gagal buat link: ' + e.message, 'error');
+  }
+}
+
+function _fallbackCopyUrl(url) {
+  const ta = document.createElement('textarea');
+  ta.value = url;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  toast('Link disalin!');
+}
+
+
 // ── EXPORT CAMPAIGNS ───────────────────────────────────────────────
 function exportCampaigns() {
   const data = JSON.stringify(campaigns, null, 2);
