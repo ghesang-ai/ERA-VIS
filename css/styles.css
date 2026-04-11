@@ -195,7 +195,7 @@ a:hover { text-decoration: underline; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 
 /* Content wrapper */
-.content { padding: 24px 28px; }
+.content { padding: 24px 28px; -webkit-overflow-scrolling: touch; }
 .page { display: none; }
 .page.active { display: block; }
 

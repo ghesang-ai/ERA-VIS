@@ -416,19 +416,28 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     if (p === 'logs')      renderLogs();
     if (p === 'settings')  { loadSettings(); initSLDBSettings(); }
     closeSidebar();
+    // Reset scroll ke atas setiap pindah halaman (penting untuk iOS)
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   });
 });
 
 document.getElementById('hamburger').addEventListener('click', () => {
   const sidebar  = document.getElementById('sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
+  const isOpen   = !sidebar.classList.contains('open');
   sidebar.classList.toggle('open');
-  backdrop.classList.toggle('active', sidebar.classList.contains('open'));
+  backdrop.classList.toggle('active', isOpen);
+  // Lock/unlock body scroll saat sidebar buka/tutup (fix iOS scroll freeze)
+  document.body.style.overflow = isOpen ? 'hidden' : '';
 });
 document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-backdrop').classList.remove('active');
+  // Pastikan body scroll dilepas saat sidebar tutup
+  document.body.style.overflow = '';
 }
 
 // ── CAMPAIGN SELECT LISTENERS ─────────────────────────────────────
