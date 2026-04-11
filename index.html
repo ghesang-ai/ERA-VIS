@@ -203,9 +203,13 @@
 
       <!-- ===== CAMPAIGNS ===== -->
       <div class="page" id="page-campaigns">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px">
           <p style="color:var(--muted);font-size:12.5px">Kelola campaign visibility Erafone</p>
-          <button class="btn btn-primary" onclick="openAddCampaign()">+ Tambah Campaign</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="importCampaigns()" title="Import campaigns dari file JSON">&#x2B06; Import</button>
+            <button class="btn btn-sm" onclick="exportCampaigns()" title="Export campaigns ke file JSON">&#x2B07; Export</button>
+            <button class="btn btn-primary" onclick="openAddCampaign()">+ Tambah Campaign</button>
+          </div>
         </div>
         <div class="campaign-list" id="campaign-list"></div>
         <div class="empty-state" id="campaigns-empty" style="display:none"><div class="ico">&#x1F4CB;</div><p>Belum ada campaign. Klik + Tambah Campaign untuk mulai.</p></div>
@@ -311,6 +315,7 @@ Link form: {link_form}</textarea></div>
   </div><!-- /main -->
 </div><!-- /layout -->
 
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 <div class="toast-container" id="toast-container"></div>
 
 <!-- ===== MODAL: CAMPAIGN ===== -->
@@ -414,10 +419,17 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
   });
 });
 
-document.getElementById('hamburger').addEventListener('click', () =>
-  document.getElementById('sidebar').classList.toggle('open')
-);
-function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); }
+document.getElementById('hamburger').addEventListener('click', () => {
+  const sidebar  = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  sidebar.classList.toggle('open');
+  backdrop.classList.toggle('active', sidebar.classList.contains('open'));
+});
+document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('active');
+}
 
 // ── CAMPAIGN SELECT LISTENERS ─────────────────────────────────────
 document.getElementById('dash-campaign-select').addEventListener('change', function() {

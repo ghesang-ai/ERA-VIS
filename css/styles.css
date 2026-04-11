@@ -44,14 +44,13 @@
   --mono: ui-monospace, 'JetBrains Mono', 'Fira Mono', monospace;
 }
 
-html { font-size: 14px; }
+html { font-size: 14px; overflow-x: hidden; }
 
 body {
   font-family: var(--font);
   background: var(--page);
   color: var(--ink);
   min-height: 100vh;
-  overflow-x: hidden;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -132,6 +131,8 @@ a:hover { text-decoration: underline; }
   cursor: pointer; transition: all .15s;
   text-align: left; font-family: var(--font);
   position: relative;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .nav-btn:hover { background: #F8FAFC; color: var(--ink2); }
 .nav-btn.active {
@@ -776,7 +777,17 @@ tr:hover td { background: rgba(37,99,235,.02); }
 .code-inline { background: var(--blue-bg); color: var(--blue); padding: 1px 6px; border-radius: 4px; font-size: 11.5px; font-family: var(--mono); }
 
 /* Hamburger */
-.hamburger { display: none; background: none; border: none; cursor: pointer; padding: 6px; font-size: 20px; color: var(--ink); }
+.hamburger { display: none; background: none; border: none; cursor: pointer; padding: 6px; font-size: 20px; color: var(--ink); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+/* Sidebar backdrop (mobile) */
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 199;
+  -webkit-tap-highlight-color: transparent;
+}
+.sidebar-backdrop.active { display: block; }
 
 
 /* ── GRID HELPERS ─────────────────────────────────────────────── */
@@ -803,10 +814,14 @@ tr:hover td { background: rgba(37,99,235,.02); }
   .podium-wrap { gap: 8px; }
 }
 @media (max-width: 600px) {
-  .kpi-row { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .campaign-list { grid-template-columns: 1fr; }
   .region-grid   { grid-template-columns: 1fr; }
   .filter-row    { flex-direction: column; align-items: stretch; }
   .filter-row select,
-  .filter-row input { width: 100%; }
+  .filter-row input,
+  .filter-row button { width: 100%; box-sizing: border-box; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .card-body { overflow-x: hidden; }
+  .tbl-wrap { -webkit-overflow-scrolling: touch; overflow-x: auto; }
 }

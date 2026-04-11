@@ -297,6 +297,60 @@ function saveCampaign() {
 }
 
 
+// ── EXPORT CAMPAIGNS ───────────────────────────────────────────────
+function exportCampaigns() {
+  const data = JSON.stringify(campaigns, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'eravis-campaigns-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Campaign diekspor — kirim file ke HP lalu Import!');
+  addLog('system', 'Export ' + campaigns.length + ' campaigns');
+}
+
+
+// ── IMPORT CAMPAIGNS ───────────────────────────────────────────────
+function importCampaigns() {
+  const input  = document.createElement('input');
+  input.type   = 'file';
+  input.accept = '.json';
+  input.onchange = function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (ev) {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (!Array.isArray(imported)) throw new Error('Format tidak valid');
+        let added = 0, updated = 0;
+        imported.forEach(c => {
+          if (!c.id || !c.name) return;
+          const idx = campaigns.findIndex(x => x.id === c.id);
+          if (idx >= 0) { campaigns[idx] = c; updated++; }
+          else          { campaigns.push(c); added++; }
+        });
+        save(SK.campaigns, campaigns);
+        renderCampaignList();
+        populateAllSelects();
+        toast(added + ' campaign baru, ' + updated + ' diupdate');
+        addLog('system', 'Import ' + imported.length + ' campaigns');
+      } catch (err) {
+        toast('Gagal import: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  document.body.appendChild(input);
+  input.click();
+  document.body.removeChild(input);
+}
+
+
 // ── DELETE CAMPAIGN ────────────────────────────────────────────────
 function deleteCampaign(id) {
   if (!confirm('Hapus campaign ini?')) return;
