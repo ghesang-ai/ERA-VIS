@@ -323,10 +323,11 @@ async function syncCampaignsFromCloud() {
 async function pushCampaignsToCloud() {
   if (!CAMPAIGN_SYNC_URL) return;
   try {
+    // mode: 'no-cors' agar tidak blocked oleh CORS — response opaque tapi data tetap masuk
     await fetch(CAMPAIGN_SYNC_URL, {
-      method : 'POST',
-      body   : JSON.stringify(campaigns)
-      // Tidak pakai Content-Type header agar tidak trigger CORS preflight
+      method    : 'POST',
+      mode      : 'no-cors',
+      body      : JSON.stringify(campaigns)
     });
   } catch (e) {
     console.warn('[ERA-VIS] Cloud push gagal:', e.message);
