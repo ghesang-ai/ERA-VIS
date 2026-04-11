@@ -291,9 +291,46 @@ function saveCampaign() {
   }
 
   save(SK.campaigns, campaigns);
+  pushCampaignsToCloud();
   closeModal('modal-add');
   renderCampaignList();
   populateAllSelects();
+}
+
+
+// ── CLOUD SYNC VIA GOOGLE APPS SCRIPT ─────────────────────────────
+
+// Ambil campaigns dari Google Sheets (dibaca saat app load)
+async function syncCampaignsFromCloud() {
+  if (!CAMPAIGN_SYNC_URL) return false;
+  try {
+    const resp = await fetch(CAMPAIGN_SYNC_URL + '?action=get', { cache: 'no-store' });
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    if (!Array.isArray(data) || !data.length) return false;
+    campaigns = data;
+    save(SK.campaigns, campaigns);
+    populateAllSelects();
+    renderCampaignList();
+    return true;
+  } catch (e) {
+    console.warn('[ERA-VIS] Cloud sync gagal, pakai localStorage:', e.message);
+    return false;
+  }
+}
+
+// Kirim campaigns ke Google Sheets (dipanggil setiap kali ada perubahan)
+async function pushCampaignsToCloud() {
+  if (!CAMPAIGN_SYNC_URL) return;
+  try {
+    await fetch(CAMPAIGN_SYNC_URL, {
+      method : 'POST',
+      body   : JSON.stringify(campaigns)
+      // Tidak pakai Content-Type header agar tidak trigger CORS preflight
+    });
+  } catch (e) {
+    console.warn('[ERA-VIS] Cloud push gagal:', e.message);
+  }
 }
 
 
@@ -408,6 +445,7 @@ function deleteCampaign(id) {
   const c = campaigns.find(x => x.id === id);
   campaigns = campaigns.filter(x => x.id !== id);
   save(SK.campaigns, campaigns);
+  pushCampaignsToCloud();
   renderCampaignList();
   populateAllSelects();
   toast('Campaign dihapus');

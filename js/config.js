@@ -13,6 +13,12 @@ const SPREADSHEET_ID = '1MpGnsBYbL1faYOaQplQKWQFX2CMEXVXgUCfpW1W97Yc';
 // Isi jika sheet tidak dipublish dan butuh auth
 const GOOGLE_API_KEY = '';   // ← isi jika diperlukan
 
+// ── CLOUD SYNC (Google Apps Script) ──────────────────────────────
+// URL Apps Script Web App untuk sync campaign ke semua device.
+// Isi setelah deploy Apps Script (lihat panduan Setup Guide).
+// Kosongkan ('') untuk tetap pakai localStorage saja.
+const CAMPAIGN_SYNC_URL = '';  // ← isi dengan URL Apps Script setelah setup
+
 // Base URL helper untuk fetch CSV publik
 function sheetCsvUrl(spreadsheetId, sheetName) {
   return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;

@@ -492,6 +492,16 @@ populateAllSelects();
 renderCampaignList();
 loadSettings();
 
+// Sync campaigns dari cloud (jika CAMPAIGN_SYNC_URL sudah diisi di config.js)
+// Berjalan di background — tidak memblokir load awal
+syncCampaignsFromCloud().then(synced => {
+  if (synced) {
+    // Jika cloud sync berhasil & dashboard sedang aktif, reload data
+    const activeSel = document.getElementById('dash-campaign-select');
+    if (activeSel && activeSel.value) loadCampaignData(activeSel.value);
+  }
+});
+
 const activeCampaign = campaigns.find(c => c.status !== 'ended');
 if (activeCampaign) {
   document.getElementById('dash-campaign-select').value = activeCampaign.id;
