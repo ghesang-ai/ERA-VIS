@@ -43,7 +43,7 @@
   </aside>
 
   <!-- ===== MAIN ===== -->
-  <div class="main">
+  <div class="main" id="main-area">
 
     <header class="topbar">
       <div class="topbar-left">
@@ -402,6 +402,8 @@ let currentSendStore  = null;
 function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
 
 // ── NAV ───────────────────────────────────────────────────────────
+const mainEl = document.getElementById('main-area');
+
 document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
   btn.addEventListener('click', () => {
     const p = btn.dataset.page;
@@ -416,28 +418,22 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     if (p === 'logs')      renderLogs();
     if (p === 'settings')  { loadSettings(); initSLDBSettings(); }
     closeSidebar();
-    // Reset scroll ke atas setiap pindah halaman (penting untuk iOS)
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    // Reset scroll ke atas — scroll di .main container (bukan window)
+    if (mainEl) mainEl.scrollTop = 0;
   });
 });
 
 document.getElementById('hamburger').addEventListener('click', () => {
   const sidebar  = document.getElementById('sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
-  const isOpen   = !sidebar.classList.contains('open');
+  const opening  = !sidebar.classList.contains('open');
   sidebar.classList.toggle('open');
-  backdrop.classList.toggle('active', isOpen);
-  // Lock/unlock body scroll saat sidebar buka/tutup (fix iOS scroll freeze)
-  document.body.style.overflow = isOpen ? 'hidden' : '';
+  backdrop.classList.toggle('active', opening);
 });
 document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-backdrop').classList.remove('active');
-  // Pastikan body scroll dilepas saat sidebar tutup
-  document.body.style.overflow = '';
 }
 
 // ── CAMPAIGN SELECT LISTENERS ─────────────────────────────────────
