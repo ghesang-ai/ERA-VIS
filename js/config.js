@@ -17,7 +17,7 @@ const GOOGLE_API_KEY = '';   // ← isi jika diperlukan
 // URL Apps Script Web App untuk sync campaign ke semua device.
 // Isi setelah deploy Apps Script (lihat panduan Setup Guide).
 // Kosongkan ('') untuk tetap pakai localStorage saja.
-const CAMPAIGN_SYNC_URL = '';  // ← isi dengan URL Apps Script setelah setup
+const CAMPAIGN_SYNC_URL = 'https://script.google.com/macros/s/AKfycbyEXaVRvtRb2ofZTNA-FVIj8wqjZaIasWbf6UsluEBDbIUolKlMFHLAlWI1Wolc-Ivrng/exec';
 
 // Base URL helper untuk fetch CSV publik
 function sheetCsvUrl(spreadsheetId, sheetName) {
