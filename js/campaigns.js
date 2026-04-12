@@ -308,8 +308,13 @@ async function syncCampaignsFromCloud() {
     if (!resp.ok) return false;
     const data = await resp.json();
     if (!Array.isArray(data) || !data.length) return false;
-    campaigns = data;
+    // Merge: pertahankan campaign lokal yang belum ada di cloud (push belum sampai)
+    const cloudIds = new Set(data.map(c => c.id));
+    const localOnly = campaigns.filter(c => !cloudIds.has(c.id));
+    campaigns = [...data, ...localOnly];
     save(SK.campaigns, campaigns);
+    // Jika ada campaign lokal yang belum tersimpan di cloud, push ulang
+    if (localOnly.length > 0) pushCampaignsToCloud();
     populateAllSelects();
     renderCampaignList();
     return true;
