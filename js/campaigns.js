@@ -313,7 +313,7 @@ async function syncCampaignsFromCloud() {
     // Cloud kosong → push local campaigns agar cloud terupdate
     if (!Array.isArray(data) || !data.length) {
       if (campaigns.length > 0) pushCampaignsToCloud();
-      return false;
+      return 'empty';
     }
 
     // Merge: pertahankan campaign lokal yang belum ada di cloud

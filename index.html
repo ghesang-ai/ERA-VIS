@@ -493,15 +493,14 @@ renderCampaignList();
 loadSettings();
 
 // Sync campaigns dari cloud (jika CAMPAIGN_SYNC_URL sudah diisi di config.js)
-syncCampaignsFromCloud().then(synced => {
-  if (synced) {
+syncCampaignsFromCloud().then(result => {
+  if (result === true) {
     // Cloud punya data → reload dashboard
     const activeSel = document.getElementById('dash-campaign-select');
     if (activeSel && activeSel.value) loadCampaignData(activeSel.value);
-  } else if (campaigns.length) {
-    // Cloud kosong tapi local ada data → otomatis push local ke cloud
-    pushCampaignsToCloud();
   }
+  // result === 'empty'  → syncCampaignsFromCloud sudah push internal, tidak perlu push lagi
+  // result === false    → network error, jangan push agar cloud tidak tertimpa data lokal yang stale
 });
 
 const activeCampaign = campaigns.find(c => c.status !== 'ended');
