@@ -1,72 +1,77 @@
-// ERA-VIS — Campaign Sync via Netlify Blobs
-// GET  → baca campaigns dari Blobs
-// POST → tulis campaigns ke Blobs
+// ERA-VIS — Campaign Sync via Google Apps Script proxy
+// Netlify Function ini hanya sebagai proxy CORS-safe ke Google Apps Script
+// GET  → ambil campaigns dari Apps Script
+// POST → simpan campaigns ke Apps Script
+//
+// Tidak butuh package npm apapun — gunakan built-in fetch (Node 18)
 
-const { getStore } = require('@netlify/blobs');
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyEXaVRvtRb2ofZTNA-FVIj8wqjZaIasWbf6UsluEBDbIUolKlMFHLAlWI1Wolc-Ivrng/exec';
 
-const STORE_NAME = 'era-vis';
-const BLOB_KEY   = 'campaigns';
+const HEADERS = {
+  'Access-Control-Allow-Origin' : '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Content-Type'                : 'application/json',
+};
 
 exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin' : '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type'                : 'application/json',
-  };
-
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
-  let store;
-  try {
-    store = getStore(STORE_NAME);
-  } catch (err) {
-    console.error('[ERA-VIS] getStore error:', err.message);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Blobs init gagal: ' + err.message }) };
+    return { statusCode: 200, headers: HEADERS, body: '' };
   }
 
   try {
-    // ── GET: ambil campaign list ───────────────────────────────────
+    // ── GET: ambil campaigns dari Apps Script ─────────────────────
     if (event.httpMethod === 'GET') {
-      const raw = await store.get(BLOB_KEY);
-      console.log('[ERA-VIS] GET raw:', raw ? raw.slice(0, 100) : 'null');
-      let data = [];
-      if (raw) {
-        try { data = JSON.parse(raw); } catch { data = []; }
-      }
+      const resp = await fetch(APPS_SCRIPT_URL, { redirect: 'follow' });
+      const text = await resp.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = []; }
       return {
         statusCode: 200,
-        headers,
+        headers: HEADERS,
         body: JSON.stringify(Array.isArray(data) ? data : []),
       };
     }
 
-    // ── POST: simpan campaign list ─────────────────────────────────
+    // ── POST: simpan campaigns ke Apps Script ──────────────────────
+    // Apps Script /exec redirect POST → harus follow redirect manual agar
+    // tetap pakai method POST (bukan GET seperti default fetch redirect)
     if (event.httpMethod === 'POST') {
-      let campaigns;
-      try {
-        campaigns = JSON.parse(event.body);
-      } catch {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+      let targetUrl = APPS_SCRIPT_URL;
+      let resp;
+      let redirects = 0;
+
+      while (redirects <= 5) {
+        resp = await fetch(targetUrl, {
+          method  : 'POST',
+          headers : { 'Content-Type': 'application/json' },
+          body    : event.body,
+          redirect: 'manual',
+        });
+
+        const location = resp.headers.get('location');
+        if ((resp.status === 301 || resp.status === 302 || resp.status === 307 || resp.status === 308) && location) {
+          targetUrl = location;
+          redirects++;
+        } else {
+          break;
+        }
       }
-      if (!Array.isArray(campaigns)) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body harus array' }) };
-      }
-      await store.set(BLOB_KEY, JSON.stringify(campaigns));
-      console.log('[ERA-VIS] POST saved', campaigns.length, 'campaigns');
+
+      const text = await resp.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = { ok: true }; }
       return {
         statusCode: 200,
-        headers,
-        body: JSON.stringify({ ok: true, count: campaigns.length }),
+        headers: HEADERS,
+        body: JSON.stringify(data),
       };
     }
 
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+    return { statusCode: 405, headers: HEADERS, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   } catch (err) {
-    console.error('[ERA-VIS] Blobs error:', err.message);
-    return { statusCode: 502, headers, body: JSON.stringify({ error: err.message }) };
+    console.error('[ERA-VIS] Proxy error:', err.message);
+    return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: err.message }) };
   }
 };
