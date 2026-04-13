@@ -300,11 +300,14 @@ function saveCampaign() {
 
 // ── CLOUD SYNC VIA GOOGLE APPS SCRIPT ─────────────────────────────
 
-// Ambil campaigns dari Google Sheets (dibaca saat app load)
+// Proxy URL — server-side request ke Apps Script, bebas CORS
+const SYNC_PROXY = '/.netlify/functions/campaign-sync';
+
+// Ambil campaigns dari cloud (via Netlify proxy → Google Apps Script)
 async function syncCampaignsFromCloud() {
   if (!CAMPAIGN_SYNC_URL) return false;
   try {
-    const resp = await fetch(CAMPAIGN_SYNC_URL + '?action=get', { cache: 'no-store' });
+    const resp = await fetch(SYNC_PROXY, { cache: 'no-store' });
     if (!resp.ok) return false;
     const data = await resp.json();
     if (!Array.isArray(data) || !data.length) return false;
@@ -324,15 +327,14 @@ async function syncCampaignsFromCloud() {
   }
 }
 
-// Kirim campaigns ke Google Sheets (dipanggil setiap kali ada perubahan)
+// Kirim campaigns ke cloud via Netlify proxy (dengan proper Content-Type header)
 async function pushCampaignsToCloud() {
   if (!CAMPAIGN_SYNC_URL) return;
   try {
-    // mode: 'no-cors' agar tidak blocked oleh CORS — response opaque tapi data tetap masuk
-    await fetch(CAMPAIGN_SYNC_URL, {
-      method    : 'POST',
-      mode      : 'no-cors',
-      body      : JSON.stringify(campaigns)
+    await fetch(SYNC_PROXY, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(campaigns)
     });
   } catch (e) {
     console.warn('[ERA-VIS] Cloud push gagal:', e.message);
