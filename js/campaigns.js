@@ -303,20 +303,25 @@ function saveCampaign() {
 // Proxy URL — server-side request ke Apps Script, bebas CORS
 const SYNC_PROXY = '/.netlify/functions/campaign-sync';
 
-// Ambil campaigns dari cloud (via Netlify proxy → Google Apps Script)
+// Ambil campaigns dari cloud (via Netlify Blobs proxy)
 async function syncCampaignsFromCloud() {
-  if (!CAMPAIGN_SYNC_URL) return false;
   try {
     const resp = await fetch(SYNC_PROXY, { cache: 'no-store' });
     if (!resp.ok) return false;
     const data = await resp.json();
-    if (!Array.isArray(data) || !data.length) return false;
-    // Merge: pertahankan campaign lokal yang belum ada di cloud (push belum sampai)
+
+    // Cloud kosong → push local campaigns agar cloud terupdate
+    if (!Array.isArray(data) || !data.length) {
+      if (campaigns.length > 0) pushCampaignsToCloud();
+      return false;
+    }
+
+    // Merge: pertahankan campaign lokal yang belum ada di cloud
     const cloudIds = new Set(data.map(c => c.id));
     const localOnly = campaigns.filter(c => !cloudIds.has(c.id));
     campaigns = [...data, ...localOnly];
     save(SK.campaigns, campaigns);
-    // Jika ada campaign lokal yang belum tersimpan di cloud, push ulang
+    // Jika ada campaign lokal yang belum ada di cloud, push semua
     if (localOnly.length > 0) pushCampaignsToCloud();
     populateAllSelects();
     renderCampaignList();

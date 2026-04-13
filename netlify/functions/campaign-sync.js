@@ -1,40 +1,48 @@
-// ERA-VIS — Campaign Sync Proxy (Netlify Function)
-// Proxies GET/POST ke Google Apps Script agar tidak terblokir CORS di browser
-// Browser tidak bisa POST ke Apps Script dengan Content-Type header (no-cors strip headers),
-// sehingga Apps Script tidak bisa parse JSON. Proxy ini mengirim request server-side.
+// ERA-VIS — Campaign Sync via Netlify Blobs
+// Menyimpan campaign data di Netlify Blobs (server-side, reliable, no redirect issues)
+// GET  → baca dari Blobs
+// POST → tulis ke Blobs
 
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyEXaVRvtRb2ofZTNA-FVIj8wqjZaIasWbf6UsluEBDbIUolKlMFHLAlWI1Wolc-Ivrng/exec';
+const { getStore } = require('@netlify/blobs');
+
+const BLOB_KEY = 'campaigns';
 
 exports.handler = async (event) => {
   const headers = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin' : '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type': 'application/json',
+    'Content-Type'                : 'application/json',
   };
 
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
 
+  const store = getStore({ name: 'era-vis', consistency: 'strong' });
+
   try {
     if (event.httpMethod === 'GET') {
-      const resp = await fetch(APPS_SCRIPT_URL + '?action=get');
-      const text = await resp.text();
-      let data;
-      try { data = JSON.parse(text); } catch { data = []; }
-      return { statusCode: 200, headers, body: JSON.stringify(data) };
+      const data = await store.get(BLOB_KEY, { type: 'json' });
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(Array.isArray(data) ? data : []),
+      };
     }
 
     if (event.httpMethod === 'POST') {
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body   : event.body,
-      });
-      // Apps Script doPost mengembalikan text/plain atau JSON
-      const text = await resp.text();
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, response: text }) };
+      let campaigns;
+      try {
+        campaigns = JSON.parse(event.body);
+      } catch {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON' }) };
+      }
+      if (!Array.isArray(campaigns)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body harus array' }) };
+      }
+      await store.setJSON(BLOB_KEY, campaigns);
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, count: campaigns.length }) };
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
