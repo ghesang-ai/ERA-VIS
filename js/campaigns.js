@@ -317,9 +317,19 @@ async function syncCampaignsFromCloud() {
     }
 
     // Merge: pertahankan campaign lokal yang belum ada di cloud
-    const cloudIds = new Set(data.map(c => c.id));
+    // Untuk Excel campaigns: cloud tidak menyimpan localStores (terlalu besar),
+    // jadi kembalikan localStores dari localStorage jika ada.
+    const localById = Object.fromEntries(campaigns.map(c => [c.id, c]));
+    const cloudIds  = new Set(data.map(c => c.id));
+    const merged    = data.map(c => {
+      const local = localById[c.id];
+      if (c.mode === 'excel' && local?.localStores) {
+        return { ...c, localStores: local.localStores };
+      }
+      return c;
+    });
     const localOnly = campaigns.filter(c => !cloudIds.has(c.id));
-    campaigns = [...data, ...localOnly];
+    campaigns = [...merged, ...localOnly];
     save(SK.campaigns, campaigns);
     // Jika ada campaign lokal yang belum ada di cloud, push semua
     if (localOnly.length > 0) pushCampaignsToCloud();
@@ -333,12 +343,21 @@ async function syncCampaignsFromCloud() {
 }
 
 // Kirim campaigns ke cloud via Netlify proxy (dengan proper Content-Type header)
+// localStores di-strip agar payload tidak melebihi batas 50.000 karakter Google Sheets.
+// Data toko Excel tetap tersimpan di localStorage masing-masing device.
 async function pushCampaignsToCloud() {
+  const payload = campaigns.map(c => {
+    if (c.mode === 'excel') {
+      const { localStores, ...rest } = c;
+      return rest;
+    }
+    return c;
+  });
   try {
     const resp = await fetch(SYNC_PROXY, {
       method : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body   : JSON.stringify(campaigns)
+      body   : JSON.stringify(payload)
     });
     if (!resp.ok) {
       const errText = await resp.text();
