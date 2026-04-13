@@ -334,16 +334,32 @@ async function syncCampaignsFromCloud() {
 
 // Kirim campaigns ke cloud via Netlify proxy (dengan proper Content-Type header)
 async function pushCampaignsToCloud() {
-  if (!CAMPAIGN_SYNC_URL) return;
   try {
-    await fetch(SYNC_PROXY, {
+    const resp = await fetch(SYNC_PROXY, {
       method : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body   : JSON.stringify(campaigns)
     });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error('[ERA-VIS] Cloud push gagal:', resp.status, errText);
+      toast('Sync cloud gagal: ' + resp.status, 'error');
+      return false;
+    }
+    console.log('[ERA-VIS] Cloud push OK:', campaigns.length, 'campaigns');
+    return true;
   } catch (e) {
     console.warn('[ERA-VIS] Cloud push gagal:', e.message);
+    toast('Sync cloud gagal: ' + e.message, 'error');
+    return false;
   }
+}
+
+// Force push semua campaign lokal ke cloud (untuk recovery / debug)
+async function forcePushToCloud() {
+  toast('Menyimpan ' + campaigns.length + ' campaign ke cloud...', 'info');
+  const ok = await pushCampaignsToCloud();
+  if (ok) toast(campaigns.length + ' campaign berhasil disimpan ke cloud!', 'success');
 }
 
 
