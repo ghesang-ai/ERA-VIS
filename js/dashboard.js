@@ -595,7 +595,20 @@ function renderInsights(ins) {
 function refreshAllData() {
   const d = document.getElementById('dash-campaign-select').value;
   const s = document.getElementById('store-campaign-select').value;
-  if (d) loadCampaignData(d);
-  if (s) loadStoreData(s);
-  if (!d && !s) toast('Pilih campaign terlebih dahulu', 'info');
+
+  // Sync campaign list dulu (pull cloud + push local-only), lalu reload data
+  syncCampaignsFromCloud().then(result => {
+    if (result === true) {
+      // Cloud punya data terbaru → push local-only jika ada (sudah dilakukan di dalam sync)
+      // Reload dashboard dengan campaign aktif terbaru
+      const latestD = document.getElementById('dash-campaign-select').value;
+      const latestS = document.getElementById('store-campaign-select').value;
+      if (latestD) loadCampaignData(latestD);
+      if (latestS) loadStoreData(latestS);
+    } else {
+      if (d) loadCampaignData(d);
+      if (s) loadStoreData(s);
+    }
+    if (!d && !s && result !== true) toast('Pilih campaign terlebih dahulu', 'info');
+  });
 }
