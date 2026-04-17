@@ -34,6 +34,7 @@ const SK = {
   reminders : 'eravis_reminders',
   master    : 'eravis_master',
   sldb      : 'eravis_sldb',
+  deleted   : 'eravis_deleted_campaigns',
 };
 
 

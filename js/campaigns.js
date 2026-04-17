@@ -316,12 +316,16 @@ async function syncCampaignsFromCloud() {
       return 'empty';
     }
 
+    // Filter campaign yang sudah dihapus di device ini agar tidak hidup lagi dari cloud
+    const deletedIds = new Set(JSON.parse(localStorage.getItem(SK.deleted) || '[]'));
+    const filteredData = data.filter(c => !deletedIds.has(c.id));
+
     // Merge: pertahankan campaign lokal yang belum ada di cloud.
     // Untuk Excel campaigns: cloud menyimpan versi minified localStores (4 field).
     // Kalau device punya data lokal yang lebih lengkap, gunakan itu.
     const localById = Object.fromEntries(campaigns.map(c => [c.id, c]));
-    const cloudIds  = new Set(data.map(c => c.id));
-    const merged    = data.map(c => {
+    const cloudIds  = new Set(filteredData.map(c => c.id));
+    const merged    = filteredData.map(c => {
       const local = localById[c.id];
       if (c.mode === 'excel' && local?.localStores) {
         return { ...c, localStores: local.localStores };
@@ -500,6 +504,10 @@ function deleteCampaign(id) {
   if (!confirm('Hapus campaign ini?')) return;
   const c = campaigns.find(x => x.id === id);
   campaigns = campaigns.filter(x => x.id !== id);
+  // Simpan ID yang dihapus agar tidak "hidup lagi" saat sync cloud
+  const deletedIds = JSON.parse(localStorage.getItem(SK.deleted) || '[]');
+  if (!deletedIds.includes(id)) deletedIds.push(id);
+  localStorage.setItem(SK.deleted, JSON.stringify(deletedIds));
   save(SK.campaigns, campaigns);
   pushCampaignsToCloud();
   renderCampaignList();
