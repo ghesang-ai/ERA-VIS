@@ -1,6 +1,6 @@
 // ERA-VIS — LocalStores Sync via Netlify Blobs
-// Menyimpan localStores tiap campaign Excel secara terpisah dari metadata campaign,
-// karena Apps Script tidak bisa menyimpan localStores (size limit).
+// Memerlukan env var NETLIFY_AUTH_TOKEN (personal access token) di Netlify site settings.
+// SITE_ID otomatis tersedia di Netlify Functions.
 //
 // GET  ?id=<campaignId>  → ambil localStores untuk satu campaign
 // POST {id, localStores} → simpan localStores
@@ -17,13 +17,25 @@ const HEADERS = {
   'Content-Type'                : 'application/json',
 };
 
-exports.handler = async (event, context) => {
+function getConfiguredStore() {
+  const siteID = process.env.SITE_ID || process.env.NETLIFY_SITE_ID;
+  const token  = process.env.NETLIFY_AUTH_TOKEN;
+
+  if (siteID && token) {
+    // Manual config via personal access token (production fallback)
+    return getStore({ name: 'localstores', siteID, token });
+  }
+  // Coba auto-config (akan berhasil jika NETLIFY_BLOBS_CONTEXT tersedia)
+  return getStore({ name: 'localstores', consistency: 'strong' });
+}
+
+exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: HEADERS, body: '' };
   }
 
   try {
-    const store = getStore({ name: 'localstores', consistency: 'strong' });
+    const store = getConfiguredStore();
 
     // ── GET ──────────────────────────────────────────────────────────
     if (event.httpMethod === 'GET') {
