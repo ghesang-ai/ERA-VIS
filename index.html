@@ -213,7 +213,22 @@
             <button class="btn btn-primary" onclick="openAddCampaign()">+ Tambah Campaign</button>
           </div>
         </div>
-        <div class="campaign-list" id="campaign-list"></div>
+        <!-- Month filter + sort toolbar -->
+        <div class="month-toolbar">
+          <span class="month-toolbar-label">&#x1F4C5; Filter Bulan</span>
+          <div class="month-tabs" id="campaign-month-tabs"></div>
+          <div class="sort-controls">
+            <span class="sort-label">Sort</span>
+            <select class="sort-select" id="campaign-sort" onchange="renderCampaignList()">
+              <option value="deadline-asc">Deadline &#x2191; Terdekat</option>
+              <option value="deadline-desc">Deadline &#x2193; Terjauh</option>
+              <option value="rate-desc">Rate &#x2193; Tertinggi</option>
+              <option value="rate-asc">Rate &#x2191; Terendah</option>
+              <option value="name-asc">Nama A&#x2013;Z</option>
+            </select>
+          </div>
+        </div>
+        <div id="campaign-list-wrap"></div>
         <div class="empty-state" id="campaigns-empty" style="display:none"><div class="ico">&#x1F4CB;</div><p>Belum ada campaign. Klik + Tambah Campaign untuk mulai.</p></div>
       </div>
 

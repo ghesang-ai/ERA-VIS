@@ -12,55 +12,168 @@ let _excelWB = null;
 
 
 // ── CAMPAIGN LIST ──────────────────────────────────────────────────
+const MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+let _campActiveMonth = 'all';
+
+function _campDeadlineMonth(c) {
+  if (!c.deadline) return null;
+  return new Date(c.deadline).getMonth() + 1;
+}
+
+function _campDeadlineDays(c) {
+  if (!c.deadline) return null;
+  return Math.ceil((new Date(c.deadline) - Date.now()) / 864e5);
+}
+
+function _campDeadlineBadge(c) {
+  if (c.status === 'ended') return `<span class="dl-badge dl-ended">✅ Selesai · ${c.deadline}</span>`;
+  const d = _campDeadlineDays(c);
+  if (d === null) return '';
+  if (d < 0)  return `<span class="dl-badge dl-overdue">⚠ Lewat ${Math.abs(d)}h · ${c.deadline}</span>`;
+  if (d <= 3) return `<span class="dl-badge dl-urgent">🔴 ${d}h lagi · ${c.deadline}</span>`;
+  if (d <= 7) return `<span class="dl-badge dl-soon">🟡 ${d}h lagi · ${c.deadline}</span>`;
+  return `<span class="dl-badge dl-normal">📅 ${d}h lagi · ${c.deadline}</span>`;
+}
+
+function _campSorted(list) {
+  const s = (document.getElementById('campaign-sort') || {}).value || 'deadline-asc';
+  return [...list].sort((a, b) => {
+    if (s === 'deadline-asc')  return new Date(a.deadline || '9999') - new Date(b.deadline || '9999');
+    if (s === 'deadline-desc') return new Date(b.deadline || '0000') - new Date(a.deadline || '0000');
+    if (s === 'rate-desc') { const ra = dataCache[a.id]?.rate||0, rb = dataCache[b.id]?.rate||0; return rb - ra; }
+    if (s === 'rate-asc')  { const ra = dataCache[a.id]?.rate||0, rb = dataCache[b.id]?.rate||0; return ra - rb; }
+    if (s === 'name-asc')  return a.name.localeCompare(b.name);
+    return 0;
+  });
+}
+
+function _campSetMonth(m) {
+  _campActiveMonth = m;
+  renderCampaignList();
+}
+
+function _campRenderTabs() {
+  const el = document.getElementById('campaign-month-tabs');
+  if (!el) return;
+  const now = new Date().getMonth() + 1;
+  const monthSet = new Set(campaigns.map(c => _campDeadlineMonth(c)).filter(Boolean));
+  let html = `<button class="camp-month-tab${_campActiveMonth==='all'?' active':' has-camp'}" onclick="_campSetMonth('all')">Semua</button>`;
+  for (let m = 1; m <= 12; m++) {
+    const cnt  = campaigns.filter(c => _campDeadlineMonth(c) === m).length;
+    const has  = monthSet.has(m);
+    const cls  = _campActiveMonth === m ? ' active' : (has ? ' has-camp' : '');
+    const now_ = m === now && has ? '<span class="camp-now-badge">Now</span>' : '';
+    html += `<button class="camp-month-tab${cls}" onclick="_campSetMonth(${m})"${has?'':' style="opacity:.3"'}>
+      ${MONTH_SHORT_ID[m-1]}${has?`<sup>${cnt}</sup>`:''}${now_}
+    </button>`;
+  }
+  el.innerHTML = html;
+}
+
+function _campRenderCard(c) {
+  const d         = dataCache[c.id];
+  const total     = d ? d.totalStores : (c.localStores ? c.localStores.length : '—');
+  const done      = d ? d.doneCount   : '—';
+  const rate      = d ? d.rate        : null;
+  const rateTxt   = rate !== null ? rate + '%' : '—';
+  const pct       = rate !== null ? rate : 0;
+  const pClass    = pct >= 80 ? 'high' : pct >= 50 ? 'medium' : 'low';
+  const modeTag   = c.mode === 'excel'
+    ? '<span style="font-size:9px;background:var(--teal-bg);color:var(--teal);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">📎 Excel</span>'
+    : '<span style="font-size:9px;background:var(--blue-bg);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">🔗 Sheet</span>';
+  const storeMeta = c.mode === 'excel'
+    ? (c.localStores ? c.localStores.length : '—') + ' toko'
+    : `Sheet: ${esc(c.masterSheet || '')}`;
+  const days      = _campDeadlineDays(c);
+  const urgent    = c.status !== 'ended' && days !== null && days <= 7;
+
+  return `<div class="campaign-card${urgent?' camp-urgent':''}" onclick="selectCampaignAndGo('${c.id}')">
+    <div class="campaign-actions" onclick="event.stopPropagation()">
+      <button title="Edit" onclick="openEditCampaign('${c.id}')">✎</button>
+      <button class="del-btn" title="Hapus" onclick="deleteCampaign('${c.id}')">✕</button>
+    </div>
+    <div class="campaign-badge ${c.status || 'active'}">${c.status === 'ended' ? 'Ended' : 'Active'}</div>
+    <div class="campaign-name">${esc(c.name)}${modeTag}</div>
+    <div style="margin-bottom:8px">${_campDeadlineBadge(c)}</div>
+    <div class="campaign-meta">
+      ${c.formLink ? `<a href="${esc(c.formLink)}" target="_blank">Form</a> · ` : ''}${storeMeta}
+    </div>
+    <div class="camp-progress">
+      <div class="camp-track"><div class="camp-fill ${pClass}" style="width:${pct}%"></div></div>
+      <div class="camp-plabels"><span>${done} / ${total} toko</span><span>${rateTxt}</span></div>
+    </div>
+    <div class="campaign-stats">
+      <div class="campaign-stat"><div class="campaign-stat-val" style="color:var(--blue)">${total}</div><div class="campaign-stat-lbl">Toko</div></div>
+      <div class="campaign-stat"><div class="campaign-stat-val" style="color:var(--teal)">${done}</div><div class="campaign-stat-lbl">Done</div></div>
+      <div class="campaign-stat"><div class="campaign-stat-val" style="color:var(--gold)">${rateTxt}</div><div class="campaign-stat-lbl">Rate</div></div>
+    </div>
+  </div>`;
+}
+
 function renderCampaignList() {
-  const ct = document.getElementById('campaign-list');
-  const em = document.getElementById('campaigns-empty');
+  const wrap = document.getElementById('campaign-list-wrap');
+  const em   = document.getElementById('campaigns-empty');
+  if (!wrap) return;
 
   if (!campaigns.length) {
-    ct.innerHTML = '';
+    wrap.innerHTML = '';
     em.style.display = '';
+    _campRenderTabs();
     return;
   }
   em.style.display = 'none';
+  _campRenderTabs();
 
-  ct.innerHTML = campaigns.map(c => {
-    const d        = dataCache[c.id];
-    const total    = d ? d.totalStores : '—';
-    const done     = d ? d.doneCount   : '—';
-    const rate     = d ? d.rate + '%'  : '—';
-    const modeTag  = c.mode === 'excel'
-      ? '<span style="font-size:9px;background:var(--teal-bg);color:var(--teal);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">📎 Excel</span>'
-      : '<span style="font-size:9px;background:var(--blue-bg);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">🔗 Sheet</span>';
-    const storeMeta = c.mode === 'excel'
-      ? (c.localStores ? c.localStores.length : '—') + ' toko'
-      : `Sheet: ${esc(c.masterSheet || '')}`;
+  const now = new Date().getMonth() + 1;
+  const nowYear = new Date().getFullYear();
 
-    return `<div class="campaign-card" onclick="selectCampaignAndGo('${c.id}')">
-      <div class="campaign-actions" onclick="event.stopPropagation()">
-        <button title="Edit"  onclick="openEditCampaign('${c.id}')">✎</button>
-        <button class="del-btn" title="Hapus" onclick="deleteCampaign('${c.id}')">✕</button>
-      </div>
-      <div class="campaign-badge ${c.status || 'active'}">${c.status === 'ended' ? 'Ended' : 'Active'}</div>
-      <div class="campaign-name">${esc(c.name)}${modeTag}</div>
-      <div class="campaign-meta">
-        ${c.formLink ? `<a href="${esc(c.formLink)}" target="_blank">Form</a> · ` : ''}
-        ${c.deadline  ? `Deadline: ${c.deadline} · ` : ''}
-        ${storeMeta}
-      </div>
-      <div class="campaign-stats">
-        <div class="campaign-stat">
-          <div class="campaign-stat-val" style="color:var(--blue)">${total}</div>
-          <div class="campaign-stat-lbl">Toko</div>
+  // filter by month
+  let filtered = _campActiveMonth === 'all'
+    ? campaigns
+    : campaigns.filter(c => _campDeadlineMonth(c) === _campActiveMonth);
+
+  filtered = _campSorted(filtered);
+
+  if (!filtered.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px">📋</div><div style="font-size:13px;font-weight:600">Tidak ada campaign di bulan ini</div></div>`;
+    return;
+  }
+
+  if (_campActiveMonth !== 'all') {
+    const mName = MONTH_NAMES_ID[_campActiveMonth - 1];
+    const phase = _campActiveMonth < now ? 'past' : _campActiveMonth === now ? 'current' : 'future';
+    const pLbl  = { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
+    wrap.innerHTML = `
+      <div class="camp-group">
+        <div class="camp-group-hd">
+          <span class="camp-group-title">📅 ${mName} ${nowYear}</span>
+          <span class="camp-group-pill ${phase}">${pLbl}</span>
+          <span class="camp-group-line"></span>
+          <span class="camp-group-cnt">${filtered.length} campaign</span>
         </div>
-        <div class="campaign-stat">
-          <div class="campaign-stat-val" style="color:var(--teal)">${done}</div>
-          <div class="campaign-stat-lbl">Done</div>
-        </div>
-        <div class="campaign-stat">
-          <div class="campaign-stat-val" style="color:var(--gold)">${rate}</div>
-          <div class="campaign-stat-lbl">Rate</div>
-        </div>
+        <div class="campaign-list">${filtered.map(_campRenderCard).join('')}</div>
+      </div>`;
+    return;
+  }
+
+  // group by month
+  const map = {};
+  filtered.forEach(c => { const m = _campDeadlineMonth(c); if (m) { if (!map[m]) map[m]=[]; map[m].push(c); } });
+  const months = Object.keys(map).map(Number).sort((a,b)=>a-b);
+
+  wrap.innerHTML = months.map(m => {
+    const mName = MONTH_NAMES_ID[m-1];
+    const phase = m < now ? 'past' : m === now ? 'current' : 'future';
+    const pLbl  = { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
+    return `<div class="camp-group">
+      <div class="camp-group-hd">
+        <span class="camp-group-title">📅 ${mName} ${nowYear}</span>
+        <span class="camp-group-pill ${phase}">${pLbl}</span>
+        <span class="camp-group-line"></span>
+        <span class="camp-group-cnt">${map[m].length} campaign</span>
       </div>
+      <div class="campaign-list">${map[m].map(_campRenderCard).join('')}</div>
     </div>`;
   }).join('');
 }
