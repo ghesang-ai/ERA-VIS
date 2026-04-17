@@ -335,7 +335,11 @@ async function syncCampaignsFromCloud() {
       }
       return c;
     });
-    const localOnly = campaigns.filter(c => !cloudIds.has(c.id));
+    // Kampanye lokal yang tidak ada di cloud — tapi abaikan Excel campaign tanpa localStores
+    // (artinya campaign lama yang sudah dihapus dan cache-nya belum bersih)
+    const localOnly = campaigns.filter(c =>
+      !cloudIds.has(c.id) && !(c.mode === 'excel' && (!c.localStores || !c.localStores.length))
+    );
     campaigns = [...merged, ...localOnly];
     save(SK.campaigns, campaigns);
     // Push metadata + localStores ke cloud (Apps Script + Netlify Blobs)
