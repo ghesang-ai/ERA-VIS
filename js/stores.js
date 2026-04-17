@@ -40,7 +40,7 @@ async function loadStoreData(cid) {
       });
     }
 
-    const regions = [...new Set(allStores.map(s => s.region))].sort();
+    const regions = [...new Set(allStores.map(s => s.region))].filter(Boolean).sort();
     const rSel = document.getElementById('store-region-filter');
     rSel.innerHTML = '<option value="">Semua Region</option>' +
       regions.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');

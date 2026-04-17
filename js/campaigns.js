@@ -328,7 +328,10 @@ async function syncCampaignsFromCloud() {
     const merged    = filteredData.map(c => {
       const local = localById[c.id];
       if (c.mode === 'excel' && local?.localStores) {
-        return { ...c, localStores: local.localStores };
+        // Hanya pakai local jika sudah ada data region — jika belum (upload lama sebelum fix),
+        // gunakan data cloud yang lebih baru
+        const localHasRegion = local.localStores.some(s => s.region);
+        if (localHasRegion) return { ...c, localStores: local.localStores };
       }
       return c;
     });
