@@ -157,7 +157,7 @@ function mergeStatusFromImport(stores, importData) {
 // ── PARSE EXCEL STORES ─────────────────────────────────────────────
 /**
  * Parse rows[][] dari satu sheet Excel (via SheetJS) menjadi array store objects.
- * Mencari header row yang mengandung kata "plant" atau "kode".
+ * Mencari header row yang mengandung kata "plant", "kode", atau "code".
  */
 function parseExcelStores(rows) {
   let headerIdx = 0;
@@ -165,7 +165,7 @@ function parseExcelStores(rows) {
 
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const joined = rows[i].map(c => String(c || '').trim().toLowerCase()).join(' ');
-    if (joined.includes('plant') || joined.includes('kode')) {
+    if (joined.includes('plant') || joined.includes('kode') || joined.includes('code')) {
       headerIdx = i;
       rows[i].forEach((h, idx) => {
         colMap[String(h || '').trim().toLowerCase()] = idx;
@@ -181,8 +181,8 @@ function parseExcelStores(rows) {
     return -1;
   };
 
-  const iCode   = findCol('plant code', 'kode toko', 'kode');
-  const iDesc   = findCol('plant desc', 'nama toko', 'plant description', 'desc');
+  const iCode   = findCol('plant code', 'kode toko', 'kode', 'code');
+  const iDesc   = findCol('plant desc', 'nama toko', 'plant description', 'store name', 'desc');
   const iRegion = findCol('region');
   const iCity   = findCol('kota', 'city', 'kab/kota');
   const iNo     = findCol('no.', 'no');
