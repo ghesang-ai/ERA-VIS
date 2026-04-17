@@ -338,8 +338,8 @@ async function syncCampaignsFromCloud() {
     const localOnly = campaigns.filter(c => !cloudIds.has(c.id));
     campaigns = [...merged, ...localOnly];
     save(SK.campaigns, campaigns);
-    // Jika ada campaign lokal yang belum ada di cloud, push semua
-    if (localOnly.length > 0) pushCampaignsToCloud();
+    // Push metadata + localStores ke cloud (Apps Script + Netlify Blobs)
+    pushCampaignsToCloud();
     // Ambil localStores dari Netlify Blobs untuk campaign yang belum punya
     await pullLocalStoresFromCloud();
     populateAllSelects();
