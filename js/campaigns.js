@@ -340,6 +340,8 @@ async function syncCampaignsFromCloud() {
     save(SK.campaigns, campaigns);
     // Jika ada campaign lokal yang belum ada di cloud, push semua
     if (localOnly.length > 0) pushCampaignsToCloud();
+    // Ambil localStores dari Netlify Blobs untuk campaign yang belum punya
+    await pullLocalStoresFromCloud();
     populateAllSelects();
     renderCampaignList();
     return true;
@@ -349,44 +351,74 @@ async function syncCampaignsFromCloud() {
   }
 }
 
-// Kirim campaigns ke cloud via Netlify proxy (dengan proper Content-Type header).
-// localStores Excel di-minify (hanya 4 field) agar tidak melebihi limit Apps Script.
-// Device penerima akan pakai minified ini sebagai fallback jika belum punya data lokal.
+// Kirim campaigns ke cloud:
+// - Metadata (tanpa localStores) → Apps Script via SYNC_PROXY
+// - localStores → Netlify Blobs via /store-sync (terpisah, tidak ada size limit)
+const STORE_SYNC_PROXY = '/.netlify/functions/store-sync';
+
 async function pushCampaignsToCloud() {
+  // Kirim metadata saja ke Apps Script (strip localStores agar tidak melebihi limit)
   const payload = campaigns.map(c => {
-    if (c.mode === 'excel' && c.localStores && c.localStores.length) {
-      // Kirim versi minified agar device lain tetap bisa tampil Data Toko.
-      // Hanya 4 field yang dibutuhkan untuk filter + tabel — status & dokumentasi
-      // selalu di-merge ulang dari Import Sheet saat load.
-      const minStores = c.localStores.map(s => ({
-        plantCode: s.plantCode,
-        plantDesc: s.plantDesc,
-        region   : s.region,
-        city     : s.city,
-      }));
-      return { ...c, localStores: minStores };
-    }
-    return c;
+    const { localStores: _, ...meta } = c;
+    return meta;
   });
   try {
     const resp = await fetch(SYNC_PROXY, {
       method : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body   : JSON.stringify(payload)
+      body   : JSON.stringify(payload),
     });
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error('[ERA-VIS] Cloud push gagal:', resp.status, errText);
-      toast('Sync cloud gagal: ' + resp.status, 'error');
-      return false;
-    }
-    console.log('[ERA-VIS] Cloud push OK:', campaigns.length, 'campaigns');
-    return true;
+    if (!resp.ok) console.warn('[ERA-VIS] Metadata push gagal:', resp.status);
   } catch (e) {
-    console.warn('[ERA-VIS] Cloud push gagal:', e.message);
-    toast('Sync cloud gagal: ' + e.message, 'error');
-    return false;
+    console.warn('[ERA-VIS] Metadata push gagal:', e.message);
   }
+
+  // Kirim localStores tiap Excel campaign ke Netlify Blobs
+  const excelCampaigns = campaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
+  await Promise.all(excelCampaigns.map(async c => {
+    const minStores = c.localStores.map(s => ({
+      plantCode: s.plantCode,
+      plantDesc: s.plantDesc,
+      region   : s.region,
+      city     : s.city,
+    }));
+    try {
+      await fetch(STORE_SYNC_PROXY, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ id: c.id, localStores: minStores }),
+      });
+    } catch (e) {
+      console.warn('[ERA-VIS] localStores push gagal untuk', c.id, e.message);
+    }
+  }));
+
+  console.log('[ERA-VIS] Cloud push OK:', campaigns.length, 'campaigns');
+  return true;
+}
+
+// Ambil localStores dari Netlify Blobs untuk campaigns yang belum punya
+async function pullLocalStoresFromCloud() {
+  const missing = campaigns.filter(c =>
+    c.mode === 'excel' && (!c.localStores || !c.localStores.length)
+  );
+  if (!missing.length) return;
+
+  await Promise.all(missing.map(async c => {
+    try {
+      const res = await fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(c.id)}`);
+      if (!res.ok) return;
+      const stores = await res.json();
+      if (Array.isArray(stores) && stores.length) {
+        const idx = campaigns.findIndex(x => x.id === c.id);
+        if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores: stores };
+      }
+    } catch (e) {
+      console.warn('[ERA-VIS] localStores pull gagal untuk', c.id, e.message);
+    }
+  }));
+
+  save(SK.campaigns, campaigns);
 }
 
 // Force push semua campaign lokal ke cloud (untuk recovery / debug)
@@ -513,6 +545,8 @@ function deleteCampaign(id) {
   localStorage.setItem(SK.deleted, JSON.stringify(deletedIds));
   save(SK.campaigns, campaigns);
   pushCampaignsToCloud();
+  // Hapus localStores dari Netlify Blobs juga
+  fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
   renderCampaignList();
   populateAllSelects();
   toast('Campaign dihapus');
