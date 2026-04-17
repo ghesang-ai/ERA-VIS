@@ -316,9 +316,9 @@ async function syncCampaignsFromCloud() {
       return 'empty';
     }
 
-    // Merge: pertahankan campaign lokal yang belum ada di cloud
-    // Untuk Excel campaigns: cloud tidak menyimpan localStores (terlalu besar),
-    // jadi kembalikan localStores dari localStorage jika ada.
+    // Merge: pertahankan campaign lokal yang belum ada di cloud.
+    // Untuk Excel campaigns: cloud menyimpan versi minified localStores (4 field).
+    // Kalau device punya data lokal yang lebih lengkap, gunakan itu.
     const localById = Object.fromEntries(campaigns.map(c => [c.id, c]));
     const cloudIds  = new Set(data.map(c => c.id));
     const merged    = data.map(c => {
@@ -342,14 +342,22 @@ async function syncCampaignsFromCloud() {
   }
 }
 
-// Kirim campaigns ke cloud via Netlify proxy (dengan proper Content-Type header)
-// localStores di-strip agar payload tidak melebihi batas 50.000 karakter Google Sheets.
-// Data toko Excel tetap tersimpan di localStorage masing-masing device.
+// Kirim campaigns ke cloud via Netlify proxy (dengan proper Content-Type header).
+// localStores Excel di-minify (hanya 4 field) agar tidak melebihi limit Apps Script.
+// Device penerima akan pakai minified ini sebagai fallback jika belum punya data lokal.
 async function pushCampaignsToCloud() {
   const payload = campaigns.map(c => {
-    if (c.mode === 'excel') {
-      const { localStores, ...rest } = c;
-      return rest;
+    if (c.mode === 'excel' && c.localStores && c.localStores.length) {
+      // Kirim versi minified agar device lain tetap bisa tampil Data Toko.
+      // Hanya 4 field yang dibutuhkan untuk filter + tabel — status & dokumentasi
+      // selalu di-merge ulang dari Import Sheet saat load.
+      const minStores = c.localStores.map(s => ({
+        plantCode: s.plantCode,
+        plantDesc: s.plantDesc,
+        region   : s.region,
+        city     : s.city,
+      }));
+      return { ...c, localStores: minStores };
     }
     return c;
   });
