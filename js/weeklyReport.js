@@ -111,31 +111,45 @@ async function _fetchWrData(filters) {
     }
 
     // ── Merge status ─────────────────────────────────────────
-    const merged     = mergeStatusFromImport(masterStores, importData);
-    const doneStores = merged.filter(s => s.status === STATUS.DONE);
-    const ndStores   = merged.filter(s => s.status === STATUS.NOT_DONE);
-    const total      = merged.length;
+    const merged = mergeStatusFromImport(masterStores, importData);
+
+    // ── Terapkan filter Region ke store-level ─────────────────
+    // Ini yang menyebabkan toko dari region lain muncul jika tidak difilter di sini
+    const regionFilter  = filters.region; // e.g. "REGION 5" atau "ALL"
+    const storesInScope = regionFilter !== 'ALL'
+      ? merged.filter(s => (s.region || '').toUpperCase() === regionFilter.toUpperCase())
+      : merged;
+
+    const doneStores = storesInScope.filter(s => s.status === STATUS.DONE);
+    const ndStores   = storesInScope.filter(s => s.status === STATUS.NOT_DONE);
+    const total      = storesInScope.length;
     const done       = doneStores.length;
     const notDone    = ndStores.length;
     const rate       = total > 0 ? Math.round(done / total * 100) : 0;
 
-    // Update dataCache dengan angka terbaru
+    // Jika filter region aktif dan campaign ini tidak punya toko di region tsb, skip
+    if (regionFilter !== 'ALL' && total === 0) continue;
+
+    // Update dataCache dengan angka terbaru (angka global/semua region, bukan filtered)
     if (typeof dataCache !== 'undefined') {
-      dataCache[c.id] = { totalStores: total, doneCount: done, rate, lastSync: new Date().toISOString() };
+      const allDone  = merged.filter(s => s.status === STATUS.DONE).length;
+      const allTotal = merged.length;
+      const allRate  = allTotal > 0 ? Math.round(allDone / allTotal * 100) : 0;
+      dataCache[c.id] = { totalStores: allTotal, doneCount: allDone, rate: allRate, lastSync: new Date().toISOString() };
       if (typeof save === 'function') save(SK.cache, dataCache);
     }
 
-    // ── Kumpulkan stores NOT DONE untuk slide ────────────────
-    ndStores.forEach((s, idx) => {
+    // ── Kumpulkan stores NOT DONE untuk slide (sudah terfilter region) ──
+    ndStores.forEach(s => {
       allStoresNotDone.push({
-        id          : allStoresNotDone.length + 1,
-        campaign_id : c.id,
-        region      : s.region   || '',
-        plant_code  : s.plantCode || '',
-        store_name  : s.plantDesc || '',
-        city        : s.city      || '',
-        area        : s.city      || '',    // grouping key
-        days_overdue: 0,
+        id           : allStoresNotDone.length + 1,
+        campaign_id  : c.id,
+        region       : s.region    || '',
+        plant_code   : s.plantCode || '',
+        store_name   : s.plantDesc || '',
+        city         : s.city      || '',
+        area         : s.city      || '',   // grouping key di slide
+        days_overdue : 0,
         last_reminder: null,
       });
     });
