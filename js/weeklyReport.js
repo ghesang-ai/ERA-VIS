@@ -80,42 +80,57 @@ async function _fetchWrData(filters) {
   const campaignResults = [];
   const allStoresNotDone = [];
 
+  // ID campaign yang sedang aktif di halaman Data Toko / Dashboard
+  const loadedCampaignId = (document.getElementById('store-campaign-select') || {}).value ||
+                            (document.getElementById('dash-campaign-select')  || {}).value || '';
+
   for (let i = 0; i < activeCampaigns.length; i++) {
     const c = activeCampaigns[i];
     _wrUpdateLoadingText(`Memuat campaign ${i + 1}/${activeCampaigns.length}: ${c.name}`);
 
-    let masterStores = [];
-    let importData   = [];
+    // ── Gunakan currentMasterData jika campaign ini sudah di-load ──────
+    // Ini memastikan angka Weekly Report identik dengan Data Toko
+    let merged = [];
 
-    try {
-      // ── Ambil master stores ──────────────────────────────────
-      if (c.mode === 'excel' && Array.isArray(c.localStores) && c.localStores.length) {
-        // Excel mode: gunakan localStores yang sudah di-parse saat upload
-        masterStores = c.localStores;
-      } else if (c.spreadsheetId) {
-        // Sheet mode: fetch dari Google Sheets
-        const mRows = await fetchSheet(c.spreadsheetId, c.masterSheet || DEFAULT_MASTER_SHEET);
-        masterStores = parseMaster(mRows, c.headerRow || DEFAULT_HEADER_ROW);
+    if (c.id === loadedCampaignId &&
+        typeof currentMasterData !== 'undefined' && currentMasterData.length > 0) {
+      // Pakai data yang sudah di-load di halaman Data Toko (sudah ter-merge)
+      merged = currentMasterData;
+
+    } else {
+      // ── Fetch ulang — ikuti pola PERSIS sama dengan stores.js ─────────
+      let masterStores = [];
+      let importRows   = [];
+
+      try {
+        if (c.mode === 'excel') {
+          // Excel mode: localStores sudah ada, tinggal fetch import
+          masterStores = Array.isArray(c.localStores) ? c.localStores : [];
+          if (c.responseSheetId) {
+            // Import fetch punya try-catch SENDIRI agar gagal tidak mempengaruhi master
+            try {
+              importRows = await fetchSheet(c.responseSheetId, c.importSheet || DEFAULT_IMPORT_SHEET);
+            } catch (e) { /* sheet belum publish atau belum ada response — normal */ }
+          }
+        } else {
+          // Sheet mode: fetch master dari Google Sheets
+          const mRows  = await fetchSheet(c.spreadsheetId, c.masterSheet || DEFAULT_MASTER_SHEET);
+          masterStores = parseMaster(mRows, c.headerRow || DEFAULT_HEADER_ROW);
+          // Import fetch punya try-catch SENDIRI
+          try {
+            importRows = await fetchSheet(c.spreadsheetId, c.importSheet || DEFAULT_IMPORT_SHEET);
+          } catch (e) { /* silent */ }
+        }
+      } catch (err) {
+        console.warn('[weeklyReport] Fetch master gagal:', c.name, err.message);
       }
 
-      // ── Ambil import/response data ───────────────────────────
-      const importSid   = c.responseSheetId || c.spreadsheetId;
-      const importSheet = c.importSheet_excel || c.importSheet || DEFAULT_IMPORT_SHEET;
-      if (importSid && importSheet) {
-        const iRows = await fetchSheet(importSid, importSheet);
-        importData  = parseImport(iRows);
-      }
-    } catch (err) {
-      console.warn('[weeklyReport] Fetch gagal untuk campaign:', c.name, err.message);
-      // Lanjut dengan data kosong — gunakan cache jika ada
+      const importData = parseImport(importRows);
+      merged = mergeStatusFromImport(masterStores, importData);
     }
 
-    // ── Merge status ─────────────────────────────────────────
-    const merged = mergeStatusFromImport(masterStores, importData);
-
-    // ── Terapkan filter Region ke store-level ─────────────────
-    // Ini yang menyebabkan toko dari region lain muncul jika tidak difilter di sini
-    const regionFilter  = filters.region; // e.g. "REGION 5" atau "ALL"
+    // ── Terapkan filter Region ke store-level ─────────────────────────
+    const regionFilter  = filters.region;
     const storesInScope = regionFilter !== 'ALL'
       ? merged.filter(s => (s.region || '').toUpperCase() === regionFilter.toUpperCase())
       : merged;
@@ -130,7 +145,7 @@ async function _fetchWrData(filters) {
     // Jika filter region aktif dan campaign ini tidak punya toko di region tsb, skip
     if (regionFilter !== 'ALL' && total === 0) continue;
 
-    // Update dataCache dengan angka terbaru (angka global/semua region, bukan filtered)
+    // Update dataCache (angka global semua region, bukan angka filtered)
     if (typeof dataCache !== 'undefined') {
       const allDone  = merged.filter(s => s.status === STATUS.DONE).length;
       const allTotal = merged.length;
@@ -148,7 +163,7 @@ async function _fetchWrData(filters) {
         plant_code   : s.plantCode || '',
         store_name   : s.plantDesc || '',
         city         : s.city      || '',
-        area         : s.city      || '',   // grouping key di slide
+        area         : s.city      || '',
         days_overdue : 0,
         last_reminder: null,
       });
