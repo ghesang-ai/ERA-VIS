@@ -255,8 +255,16 @@ function generateCampaignSlide(campaign, storesNotDone, pageNum, totalPages) {
     byArea[area].push(s);
   });
 
-  // Hitung hidden (lebih dari 8 total items)
-  const MAX_VISIBLE_TOTAL = 8;
+  // Batas tampilan: tampilkan SEMUA jika ≤ 20, potong di 20 jika lebih
+  // (slide 2-kolom cukup untuk ~20 toko dengan font kompak)
+  const totalNd        = storesNotDone.length;
+  const MAX_VISIBLE_TOTAL = Math.min(totalNd, 20);
+
+  // Font & padding menyesuaikan jumlah toko agar muat di slide
+  const rowFontSize  = totalNd > 15 ? '10px'  : '11px';
+  const rowPadding   = totalNd > 15 ? '3px 0' : '5px 0';
+  const headFontSize = totalNd > 15 ? '8.5px' : '9.5px';
+
   let visibleCount = 0;
   let hiddenCount  = 0;
   const areaHtmlParts = [];
@@ -278,16 +286,20 @@ function generateCampaignSlide(campaign, storesNotDone, pageNum, totalPages) {
       continue;
     }
     const storeRows = areaStores.map(s => `
-      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #F8FAFC">
-        <span style="color:#DC2626;font-size:12px;flex-shrink:0">❌</span>
-        <span style="font-size:11px;font-weight:600;color:#0F172A;flex:1;letter-spacing:-.2px">${s.store_name}</span>
-        <span style="font-size:10px;color:#64748B;font-family:ui-monospace,monospace;text-align:right;white-space:nowrap">${s.city}</span>
-        ${s.days_overdue > 7 ? `<span style="font-size:9px;background:#FEF2F2;color:#DC2626;padding:1px 5px;border-radius:4px;font-family:ui-monospace,monospace;font-weight:700">${s.days_overdue}h</span>` : ''}
+      <div style="display:flex;align-items:center;gap:6px;padding:${rowPadding};border-bottom:1px solid #F8FAFC">
+        <span style="color:#DC2626;font-size:11px;flex-shrink:0">❌</span>
+        <span style="font-size:${rowFontSize};font-weight:600;color:#0F172A;flex:1;letter-spacing:-.1px;line-height:1.3">${s.store_name}</span>
+        <span style="font-size:9px;color:#64748B;font-family:ui-monospace,monospace;text-align:right;white-space:nowrap">${s.city}</span>
       </div>
     `).join('');
 
     areaHtmlParts.push(`
-      <div class="wr-section-head" style="margin-top:10px">📍 ${area}</div>
+      <div style="font-size:${headFontSize};font-weight:800;color:#64748B;text-transform:uppercase;
+                  letter-spacing:1px;font-family:ui-monospace,monospace;
+                  padding:${totalNd > 15 ? '6px 0 3px' : '8px 0 4px'};
+                  border-bottom:1.5px solid #E2E8F0;margin-top:4px">
+        📍 ${area}
+      </div>
       ${storeRows}
     `);
   }
