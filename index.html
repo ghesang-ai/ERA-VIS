@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/weeklyReport.css">
 </head>
 <body>
 
@@ -28,6 +29,7 @@
       <button class="nav-btn active" data-page="dashboard"><span class="ico">&#x1F4CA;</span> Dashboard</button>
       <button class="nav-btn" data-page="stores"><span class="ico">&#x1F3EA;</span> Data Toko</button>
       <button class="nav-btn" data-page="leaderboard"><span class="ico">&#x1F3C6;</span> Leaderboard</button>
+      <button class="nav-btn" data-page="weekly-report"><span class="ico">&#x1F4CA;</span> Weekly Report<span class="badge-new">NEW</span></button>
       <div class="nav-sec">AI Agent</div>
       <button class="nav-btn" data-page="reminder"><span class="ico">&#x1F4E8;</span> Auto Reminder<span class="nav-badge red" id="nav-badge-reminder"></span></button>
       <button class="nav-btn" data-page="logs"><span class="ico">&#x1F4DD;</span> Activity Log</button>
@@ -213,7 +215,24 @@
             <button class="btn btn-primary" onclick="openAddCampaign()">+ Tambah Campaign</button>
           </div>
         </div>
-        <div class="campaign-list" id="campaign-list"></div>
+        <!-- Month filter + sort toolbar -->
+        <div class="month-toolbar">
+          <div class="month-toolbar-top">
+            <span class="month-toolbar-label">&#x1F4C5; Filter Bulan</span>
+            <div class="sort-controls">
+              <span class="sort-label">Sort</span>
+              <select class="sort-select" id="campaign-sort" onchange="renderCampaignList()">
+                <option value="deadline-asc">Deadline &#x2191; Terdekat</option>
+                <option value="deadline-desc">Deadline &#x2193; Terjauh</option>
+                <option value="rate-desc">Rate &#x2193; Tertinggi</option>
+                <option value="rate-asc">Rate &#x2191; Terendah</option>
+                <option value="name-asc">Nama A&#x2013;Z</option>
+              </select>
+            </div>
+          </div>
+          <div class="month-tabs" id="campaign-month-tabs"></div>
+        </div>
+        <div id="campaign-list-wrap"></div>
         <div class="empty-state" id="campaigns-empty" style="display:none"><div class="ico">&#x1F4CB;</div><p>Belum ada campaign. Klik + Tambah Campaign untuk mulai.</p></div>
       </div>
 
@@ -313,6 +332,98 @@ Link form: {link_form}</textarea></div>
         </div></div>
       </div>
 
+      <!-- ===== WEEKLY REPORT ===== -->
+      <div class="page" id="page-weekly-report">
+
+        <!-- Control card -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-head">
+            <span class="card-title">&#x1F4CA; Generate Report</span>
+            <span class="badge badge-muted" style="font-size:10px">Sample Data</span>
+          </div>
+          <div class="card-body">
+            <div class="wr-controls">
+              <div class="wr-control-group">
+                <label class="wr-control-label">&#x1F4C5; Periode</label>
+                <select id="wr-period-select" class="wr-select">
+                  <option value="current">Bulan Ini (April 2026)</option>
+                  <option value="march_2026">Maret 2026</option>
+                </select>
+              </div>
+              <div class="wr-control-group">
+                <label class="wr-control-label">&#x1F4CD; Region</label>
+                <select id="wr-region-select" class="wr-select">
+                  <option value="ALL">Semua Region</option>
+                  <option value="REGION 5">Region 5 (Jkt-Tgr-Banten)</option>
+                </select>
+              </div>
+              <div class="wr-control-group">
+                <label class="wr-control-label">&#x26A0; Status</label>
+                <select id="wr-status-select" class="wr-select">
+                  <option value="NOT_DONE">NOT DONE Only</option>
+                  <option value="ALL">Semua Status</option>
+                  <option value="DONE">DONE Only</option>
+                </select>
+              </div>
+              <div class="wr-control-actions">
+                <button class="btn btn-primary" id="wr-generate-btn" onclick="generateWeeklyReport()">&#x1F3A8; Generate Slides</button>
+                <button class="btn btn-teal" id="wr-export-pdf-btn" onclick="exportWrPdf()" disabled>&#x1F4E5; Export PDF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="wr-empty-state">
+          <div class="ico">&#x1F4CA;</div>
+          <p>Klik <strong>Generate Slides</strong> untuk membuat laporan presentasi otomatis</p>
+          <p style="font-size:11px;color:var(--muted2);margin-top:4px">Gunakan tombol <strong>&#x1F4F8; Screenshot</strong> untuk save slide, lalu paste langsung ke Canva</p>
+        </div>
+
+        <!-- Loading state -->
+        <div id="wr-loading" style="display:none">
+          <div class="wr-loading-wrap">
+            <div class="spinner"></div>
+            <div class="wr-loading-text">Generating slides...</div>
+          </div>
+        </div>
+
+        <!-- Preview area (hidden sampai ada slides) -->
+        <div id="wr-preview-area" style="display:none">
+
+          <!-- Thumbnail nav -->
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-head">
+              <span class="card-title">Slide Navigator</span>
+              <span class="last-sync" id="wr-slide-count"></span>
+            </div>
+            <div class="card-body" style="padding:14px 22px">
+              <div class="wr-thumbnails" id="wr-thumbnails"></div>
+            </div>
+          </div>
+
+          <!-- Slide display -->
+          <div class="card">
+            <div class="card-head" style="flex-wrap:wrap;gap:8px">
+              <span class="card-title" id="wr-current-title" style="flex:1;min-width:160px">—</span>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="btn btn-sm" id="wr-prev-btn" onclick="prevWrSlide()" disabled>&#x2B05; Prev</button>
+                <button class="btn btn-sm btn-teal" onclick="exportWrSlidePng()" title="Download slide sebagai PNG — bisa langsung paste ke Canva">&#x1F4F8; Screenshot</button>
+                <button class="btn btn-sm btn-primary" id="wr-export-pdf-btn2" onclick="exportWrPdf()" disabled>&#x1F4E5; Export PDF</button>
+                <button class="btn btn-sm" id="wr-next-btn" onclick="nextWrSlide()">Next &#x27A1;</button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px">
+              <div class="wr-slide-viewport" id="wr-slide-viewport">
+                <div class="wr-slide-scaler" id="wr-slide-scaler"></div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /wr-preview-area -->
+
+      </div><!-- /page-weekly-report -->
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
@@ -378,12 +489,20 @@ Link form: {link_form}</textarea></div>
   <div class="modal-foot"><button class="btn" onclick="closeModal('modal-send')">Batal</button><button class="btn btn-green" onclick="confirmSendReminder()">Kirim via WhatsApp</button></div>
 </div></div>
 
+<!-- ===== EXTERNAL LIBRARIES ===== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <!-- ===== JS FILES ===== -->
 <script src="js/config.js"></script>
 <script src="js/api.js?v=20260406"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/stores.js?v=20260406"></script>
 <script src="js/campaigns.js"></script>
+<script src="js/sampleData.js"></script>
+<script src="js/slideGenerator.js"></script>
+<script src="js/reportExporter.js"></script>
+<script src="js/weeklyReport.js"></script>
 
 <!-- ===== INIT ===== -->
 <script>
@@ -416,9 +535,10 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     document.getElementById('page-title').textContent = PAGE_TITLES[p] || p;
     const lbl = document.getElementById('page-label');
     if (lbl) lbl.textContent = PAGE_SUBLABELS[p] || '';
-    if (p === 'campaigns') renderCampaignList();
-    if (p === 'logs')      renderLogs();
-    if (p === 'settings')  { loadSettings(); initSLDBSettings(); }
+    if (p === 'campaigns')     renderCampaignList();
+    if (p === 'logs')          renderLogs();
+    if (p === 'settings')      { loadSettings(); initSLDBSettings(); }
+    if (p === 'weekly-report') initWeeklyReport();
     closeSidebar();
     // Reset scroll ke atas — scroll di .main container (bukan window)
     if (mainEl) mainEl.scrollTop = 0;

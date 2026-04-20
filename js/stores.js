@@ -29,6 +29,10 @@ async function loadStoreData(cid) {
       currentMasterData = parseMaster(rows, c.headerRow || DEFAULT_HEADER_ROW);
     }
 
+    // Populate WR cache agar Weekly Report bisa pakai data yang sudah ter-merge
+    window._eravisWrDataCache = window._eravisWrDataCache || {};
+    window._eravisWrDataCache[c.id] = currentMasterData.slice();
+
     allMasterToko = await fetchMasterToko(masterTokoConfig);
 
     // ── Populate region filter ──────────────────────────────────
@@ -40,7 +44,7 @@ async function loadStoreData(cid) {
       });
     }
 
-    const regions = [...new Set(allStores.map(s => s.region))].sort();
+    const regions = [...new Set(allStores.map(s => s.region))].filter(Boolean).sort();
     const rSel = document.getElementById('store-region-filter');
     rSel.innerHTML = '<option value="">Semua Region</option>' +
       regions.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');

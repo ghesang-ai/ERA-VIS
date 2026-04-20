@@ -12,55 +12,168 @@ let _excelWB = null;
 
 
 // ── CAMPAIGN LIST ──────────────────────────────────────────────────
+const MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+let _campActiveMonth = 'all';
+
+function _campDeadlineMonth(c) {
+  if (!c.deadline) return null;
+  return new Date(c.deadline).getMonth() + 1;
+}
+
+function _campDeadlineDays(c) {
+  if (!c.deadline) return null;
+  return Math.ceil((new Date(c.deadline) - Date.now()) / 864e5);
+}
+
+function _campDeadlineBadge(c) {
+  if (c.status === 'ended') return `<span class="dl-badge dl-ended">✅ Selesai · ${c.deadline}</span>`;
+  const d = _campDeadlineDays(c);
+  if (d === null) return '';
+  if (d < 0)  return `<span class="dl-badge dl-overdue">⚠ Lewat ${Math.abs(d)}h · ${c.deadline}</span>`;
+  if (d <= 3) return `<span class="dl-badge dl-urgent">🔴 ${d}h lagi · ${c.deadline}</span>`;
+  if (d <= 7) return `<span class="dl-badge dl-soon">🟡 ${d}h lagi · ${c.deadline}</span>`;
+  return `<span class="dl-badge dl-normal">📅 ${d}h lagi · ${c.deadline}</span>`;
+}
+
+function _campSorted(list) {
+  const s = (document.getElementById('campaign-sort') || {}).value || 'deadline-asc';
+  return [...list].sort((a, b) => {
+    if (s === 'deadline-asc')  return new Date(a.deadline || '9999') - new Date(b.deadline || '9999');
+    if (s === 'deadline-desc') return new Date(b.deadline || '0000') - new Date(a.deadline || '0000');
+    if (s === 'rate-desc') { const ra = dataCache[a.id]?.rate||0, rb = dataCache[b.id]?.rate||0; return rb - ra; }
+    if (s === 'rate-asc')  { const ra = dataCache[a.id]?.rate||0, rb = dataCache[b.id]?.rate||0; return ra - rb; }
+    if (s === 'name-asc')  return a.name.localeCompare(b.name);
+    return 0;
+  });
+}
+
+function _campSetMonth(m) {
+  _campActiveMonth = m;
+  renderCampaignList();
+}
+
+function _campRenderTabs() {
+  const el = document.getElementById('campaign-month-tabs');
+  if (!el) return;
+  const now = new Date().getMonth() + 1;
+  const monthSet = new Set(campaigns.map(c => _campDeadlineMonth(c)).filter(Boolean));
+  let html = `<button class="camp-month-tab${_campActiveMonth==='all'?' active':' has-camp'}" onclick="_campSetMonth('all')">Semua</button>`;
+  for (let m = 1; m <= 12; m++) {
+    const cnt  = campaigns.filter(c => _campDeadlineMonth(c) === m).length;
+    const has  = monthSet.has(m);
+    const cls  = _campActiveMonth === m ? ' active' : (has ? ' has-camp' : '');
+    const now_ = m === now && has ? '<span class="camp-now-badge">Now</span>' : '';
+    html += `<button class="camp-month-tab${cls}" onclick="_campSetMonth(${m})"${has?'':' style="opacity:.3"'}>
+      ${MONTH_SHORT_ID[m-1]}${has?`<sup>${cnt}</sup>`:''}${now_}
+    </button>`;
+  }
+  el.innerHTML = html;
+}
+
+function _campRenderCard(c) {
+  const d         = dataCache[c.id];
+  const total     = d ? d.totalStores : (c.localStores ? c.localStores.length : '—');
+  const done      = d ? d.doneCount   : '—';
+  const rate      = d ? d.rate        : null;
+  const rateTxt   = rate !== null ? rate + '%' : '—';
+  const pct       = rate !== null ? rate : 0;
+  const pClass    = pct >= 80 ? 'high' : pct >= 50 ? 'medium' : 'low';
+  const modeTag   = c.mode === 'excel'
+    ? '<span style="font-size:9px;background:var(--teal-bg);color:var(--teal);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">📎 Excel</span>'
+    : '<span style="font-size:9px;background:var(--blue-bg);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">🔗 Sheet</span>';
+  const storeMeta = c.mode === 'excel'
+    ? (c.localStores ? c.localStores.length : '—') + ' toko'
+    : `Sheet: ${esc(c.masterSheet || '')}`;
+  const days      = _campDeadlineDays(c);
+  const urgent    = c.status !== 'ended' && days !== null && days <= 7;
+
+  return `<div class="campaign-card${urgent?' camp-urgent':''}" onclick="selectCampaignAndGo('${c.id}')">
+    <div class="campaign-actions" onclick="event.stopPropagation()">
+      <button title="Edit" onclick="openEditCampaign('${c.id}')">✎</button>
+      <button class="del-btn" title="Hapus" onclick="deleteCampaign('${c.id}')">✕</button>
+    </div>
+    <div class="campaign-badge ${c.status || 'active'}">${c.status === 'ended' ? 'Ended' : 'Active'}</div>
+    <div class="campaign-name">${esc(c.name)}${modeTag}</div>
+    <div style="margin-bottom:8px">${_campDeadlineBadge(c)}</div>
+    <div class="campaign-meta">
+      ${c.formLink ? `<a href="${esc(c.formLink)}" target="_blank">Form</a> · ` : ''}${storeMeta}
+    </div>
+    <div class="camp-progress">
+      <div class="camp-track"><div class="camp-fill ${pClass}" style="width:${pct}%"></div></div>
+      <div class="camp-plabels"><span>${done} / ${total} toko</span><span>${rateTxt}</span></div>
+    </div>
+    <div class="campaign-stats">
+      <div class="campaign-stat"><div class="campaign-stat-val" style="color:var(--blue)">${total}</div><div class="campaign-stat-lbl">Toko</div></div>
+      <div class="campaign-stat"><div class="campaign-stat-val" style="color:var(--teal)">${done}</div><div class="campaign-stat-lbl">Done</div></div>
+      <div class="campaign-stat"><div class="campaign-stat-val" style="color:var(--gold)">${rateTxt}</div><div class="campaign-stat-lbl">Rate</div></div>
+    </div>
+  </div>`;
+}
+
 function renderCampaignList() {
-  const ct = document.getElementById('campaign-list');
-  const em = document.getElementById('campaigns-empty');
+  const wrap = document.getElementById('campaign-list-wrap');
+  const em   = document.getElementById('campaigns-empty');
+  if (!wrap) return;
 
   if (!campaigns.length) {
-    ct.innerHTML = '';
+    wrap.innerHTML = '';
     em.style.display = '';
+    _campRenderTabs();
     return;
   }
   em.style.display = 'none';
+  _campRenderTabs();
 
-  ct.innerHTML = campaigns.map(c => {
-    const d        = dataCache[c.id];
-    const total    = d ? d.totalStores : '—';
-    const done     = d ? d.doneCount   : '—';
-    const rate     = d ? d.rate + '%'  : '—';
-    const modeTag  = c.mode === 'excel'
-      ? '<span style="font-size:9px;background:var(--teal-bg);color:var(--teal);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">📎 Excel</span>'
-      : '<span style="font-size:9px;background:var(--blue-bg);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">🔗 Sheet</span>';
-    const storeMeta = c.mode === 'excel'
-      ? (c.localStores ? c.localStores.length : '—') + ' toko'
-      : `Sheet: ${esc(c.masterSheet || '')}`;
+  const now = new Date().getMonth() + 1;
+  const nowYear = new Date().getFullYear();
 
-    return `<div class="campaign-card" onclick="selectCampaignAndGo('${c.id}')">
-      <div class="campaign-actions" onclick="event.stopPropagation()">
-        <button title="Edit"  onclick="openEditCampaign('${c.id}')">✎</button>
-        <button class="del-btn" title="Hapus" onclick="deleteCampaign('${c.id}')">✕</button>
-      </div>
-      <div class="campaign-badge ${c.status || 'active'}">${c.status === 'ended' ? 'Ended' : 'Active'}</div>
-      <div class="campaign-name">${esc(c.name)}${modeTag}</div>
-      <div class="campaign-meta">
-        ${c.formLink ? `<a href="${esc(c.formLink)}" target="_blank">Form</a> · ` : ''}
-        ${c.deadline  ? `Deadline: ${c.deadline} · ` : ''}
-        ${storeMeta}
-      </div>
-      <div class="campaign-stats">
-        <div class="campaign-stat">
-          <div class="campaign-stat-val" style="color:var(--blue)">${total}</div>
-          <div class="campaign-stat-lbl">Toko</div>
+  // filter by month
+  let filtered = _campActiveMonth === 'all'
+    ? campaigns
+    : campaigns.filter(c => _campDeadlineMonth(c) === _campActiveMonth);
+
+  filtered = _campSorted(filtered);
+
+  if (!filtered.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px">📋</div><div style="font-size:13px;font-weight:600">Tidak ada campaign di bulan ini</div></div>`;
+    return;
+  }
+
+  if (_campActiveMonth !== 'all') {
+    const mName = MONTH_NAMES_ID[_campActiveMonth - 1];
+    const phase = _campActiveMonth < now ? 'past' : _campActiveMonth === now ? 'current' : 'future';
+    const pLbl  = { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
+    wrap.innerHTML = `
+      <div class="camp-group">
+        <div class="camp-group-hd">
+          <span class="camp-group-title">📅 ${mName} ${nowYear}</span>
+          <span class="camp-group-pill ${phase}">${pLbl}</span>
+          <span class="camp-group-line"></span>
+          <span class="camp-group-cnt">${filtered.length} campaign</span>
         </div>
-        <div class="campaign-stat">
-          <div class="campaign-stat-val" style="color:var(--teal)">${done}</div>
-          <div class="campaign-stat-lbl">Done</div>
-        </div>
-        <div class="campaign-stat">
-          <div class="campaign-stat-val" style="color:var(--gold)">${rate}</div>
-          <div class="campaign-stat-lbl">Rate</div>
-        </div>
+        <div class="campaign-list">${filtered.map(_campRenderCard).join('')}</div>
+      </div>`;
+    return;
+  }
+
+  // group by month
+  const map = {};
+  filtered.forEach(c => { const m = _campDeadlineMonth(c); if (m) { if (!map[m]) map[m]=[]; map[m].push(c); } });
+  const months = Object.keys(map).map(Number).sort((a,b)=>a-b);
+
+  wrap.innerHTML = months.map(m => {
+    const mName = MONTH_NAMES_ID[m-1];
+    const phase = m < now ? 'past' : m === now ? 'current' : 'future';
+    const pLbl  = { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
+    return `<div class="camp-group">
+      <div class="camp-group-hd">
+        <span class="camp-group-title">📅 ${mName} ${nowYear}</span>
+        <span class="camp-group-pill ${phase}">${pLbl}</span>
+        <span class="camp-group-line"></span>
+        <span class="camp-group-cnt">${map[m].length} campaign</span>
       </div>
+      <div class="campaign-list">${map[m].map(_campRenderCard).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -316,23 +429,36 @@ async function syncCampaignsFromCloud() {
       return 'empty';
     }
 
-    // Merge: pertahankan campaign lokal yang belum ada di cloud
-    // Untuk Excel campaigns: cloud tidak menyimpan localStores (terlalu besar),
-    // jadi kembalikan localStores dari localStorage jika ada.
+    // Filter campaign yang sudah dihapus di device ini agar tidak hidup lagi dari cloud
+    const deletedIds = new Set(JSON.parse(localStorage.getItem(SK.deleted) || '[]'));
+    const filteredData = data.filter(c => !deletedIds.has(c.id));
+
+    // Merge: pertahankan campaign lokal yang belum ada di cloud.
+    // Untuk Excel campaigns: cloud menyimpan versi minified localStores (4 field).
+    // Kalau device punya data lokal yang lebih lengkap, gunakan itu.
     const localById = Object.fromEntries(campaigns.map(c => [c.id, c]));
-    const cloudIds  = new Set(data.map(c => c.id));
-    const merged    = data.map(c => {
+    const cloudIds  = new Set(filteredData.map(c => c.id));
+    const merged    = filteredData.map(c => {
       const local = localById[c.id];
       if (c.mode === 'excel' && local?.localStores) {
-        return { ...c, localStores: local.localStores };
+        // Hanya pakai local jika sudah ada data region — jika belum (upload lama sebelum fix),
+        // gunakan data cloud yang lebih baru
+        const localHasRegion = local.localStores.some(s => s.region);
+        if (localHasRegion) return { ...c, localStores: local.localStores };
       }
       return c;
     });
-    const localOnly = campaigns.filter(c => !cloudIds.has(c.id));
+    // Kampanye lokal yang tidak ada di cloud — tapi abaikan Excel campaign tanpa localStores
+    // (artinya campaign lama yang sudah dihapus dan cache-nya belum bersih)
+    const localOnly = campaigns.filter(c =>
+      !cloudIds.has(c.id) && !(c.mode === 'excel' && (!c.localStores || !c.localStores.length))
+    );
     campaigns = [...merged, ...localOnly];
     save(SK.campaigns, campaigns);
-    // Jika ada campaign lokal yang belum ada di cloud, push semua
-    if (localOnly.length > 0) pushCampaignsToCloud();
+    // Push metadata + localStores ke cloud (Apps Script + Netlify Blobs)
+    pushCampaignsToCloud();
+    // Ambil localStores dari Netlify Blobs untuk campaign yang belum punya
+    await pullLocalStoresFromCloud();
     populateAllSelects();
     renderCampaignList();
     return true;
@@ -342,36 +468,74 @@ async function syncCampaignsFromCloud() {
   }
 }
 
-// Kirim campaigns ke cloud via Netlify proxy (dengan proper Content-Type header)
-// localStores di-strip agar payload tidak melebihi batas 50.000 karakter Google Sheets.
-// Data toko Excel tetap tersimpan di localStorage masing-masing device.
+// Kirim campaigns ke cloud:
+// - Metadata (tanpa localStores) → Apps Script via SYNC_PROXY
+// - localStores → Netlify Blobs via /store-sync (terpisah, tidak ada size limit)
+const STORE_SYNC_PROXY = '/.netlify/functions/store-sync';
+
 async function pushCampaignsToCloud() {
+  // Kirim metadata saja ke Apps Script (strip localStores agar tidak melebihi limit)
   const payload = campaigns.map(c => {
-    if (c.mode === 'excel') {
-      const { localStores, ...rest } = c;
-      return rest;
-    }
-    return c;
+    const { localStores: _, ...meta } = c;
+    return meta;
   });
   try {
     const resp = await fetch(SYNC_PROXY, {
       method : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body   : JSON.stringify(payload)
+      body   : JSON.stringify(payload),
     });
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error('[ERA-VIS] Cloud push gagal:', resp.status, errText);
-      toast('Sync cloud gagal: ' + resp.status, 'error');
-      return false;
-    }
-    console.log('[ERA-VIS] Cloud push OK:', campaigns.length, 'campaigns');
-    return true;
+    if (!resp.ok) console.warn('[ERA-VIS] Metadata push gagal:', resp.status);
   } catch (e) {
-    console.warn('[ERA-VIS] Cloud push gagal:', e.message);
-    toast('Sync cloud gagal: ' + e.message, 'error');
-    return false;
+    console.warn('[ERA-VIS] Metadata push gagal:', e.message);
   }
+
+  // Kirim localStores tiap Excel campaign ke Netlify Blobs
+  const excelCampaigns = campaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
+  await Promise.all(excelCampaigns.map(async c => {
+    const minStores = c.localStores.map(s => ({
+      plantCode: s.plantCode,
+      plantDesc: s.plantDesc,
+      region   : s.region,
+      city     : s.city,
+    }));
+    try {
+      await fetch(STORE_SYNC_PROXY, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ id: c.id, localStores: minStores }),
+      });
+    } catch (e) {
+      console.warn('[ERA-VIS] localStores push gagal untuk', c.id, e.message);
+    }
+  }));
+
+  console.log('[ERA-VIS] Cloud push OK:', campaigns.length, 'campaigns');
+  return true;
+}
+
+// Ambil localStores dari Netlify Blobs untuk campaigns yang belum punya
+async function pullLocalStoresFromCloud() {
+  const missing = campaigns.filter(c =>
+    c.mode === 'excel' && (!c.localStores || !c.localStores.length)
+  );
+  if (!missing.length) return;
+
+  await Promise.all(missing.map(async c => {
+    try {
+      const res = await fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(c.id)}`);
+      if (!res.ok) return;
+      const stores = await res.json();
+      if (Array.isArray(stores) && stores.length) {
+        const idx = campaigns.findIndex(x => x.id === c.id);
+        if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores: stores };
+      }
+    } catch (e) {
+      console.warn('[ERA-VIS] localStores pull gagal untuk', c.id, e.message);
+    }
+  }));
+
+  save(SK.campaigns, campaigns);
 }
 
 // Force push semua campaign lokal ke cloud (untuk recovery / debug)
@@ -492,8 +656,14 @@ function deleteCampaign(id) {
   if (!confirm('Hapus campaign ini?')) return;
   const c = campaigns.find(x => x.id === id);
   campaigns = campaigns.filter(x => x.id !== id);
+  // Simpan ID yang dihapus agar tidak "hidup lagi" saat sync cloud
+  const deletedIds = JSON.parse(localStorage.getItem(SK.deleted) || '[]');
+  if (!deletedIds.includes(id)) deletedIds.push(id);
+  localStorage.setItem(SK.deleted, JSON.stringify(deletedIds));
   save(SK.campaigns, campaigns);
   pushCampaignsToCloud();
+  // Hapus localStores dari Netlify Blobs juga
+  fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
   renderCampaignList();
   populateAllSelects();
   toast('Campaign dihapus');

@@ -101,6 +101,24 @@ function parseMaster(rows, headerRow) {
 }
 
 
+// ── NORMALIZE KODE STORE (fuzzy matching) ─────────────────────────
+/**
+ * Ekstrak kode toko murni dari string yang mungkin mengandung teks tambahan.
+ * Contoh: "S044 - SES 2 ITC ROXY MAS" → "S044"
+ *         "S044-SES ROXY" → "S044"
+ *         "S044" → "S044"
+ */
+function normalizeKodeStore(raw) {
+  const s = (raw || '').trim().toUpperCase();
+  // Prioritas: ambil pola huruf + angka di awal string (misal S044, S015, C001)
+  const m = s.match(/^([A-Z]\d+)/);
+  if (m) return m[1];
+  // Fallback: ambil bagian sebelum tanda " - " atau " – "
+  const parts = s.split(/\s*[-–]\s*/);
+  return parts[0].trim() || s;
+}
+
+
 // ── PARSE IMPORTING (form responses) ──────────────────────────────
 /**
  * Parse rows[][] dari sheet IMPORTING menjadi array submission objects.
@@ -109,7 +127,7 @@ function parseImport(rows) {
   if (rows.length < 2) return [];
   return rows.slice(1).filter(r => r[0]).map(r => ({
     timestamp   : r[COL_IMPORT.TIMESTAMP]   || '',
-    kodeStore   : (r[COL_IMPORT.KODE_STORE]  || '').trim(),
+    kodeStore   : normalizeKodeStore(r[COL_IMPORT.KODE_STORE]),
     namaStore   : (r[COL_IMPORT.NAMA_STORE]  || '').trim(),
     region      : (r[COL_IMPORT.REGION]      || '').trim(),
     dokumentasi : (r[COL_IMPORT.DOKUMENTASI] || r[COL_IMPORT.REGION] || '').trim(),
@@ -125,11 +143,11 @@ function parseImport(rows) {
 function mergeStatusFromImport(stores, importData) {
   const submitted = {};
   importData.forEach(r => {
-    const k = (r.kodeStore || '').trim().toUpperCase();
+    const k = normalizeKodeStore(r.kodeStore);
     if (k) submitted[k] = { dokumentasi: r.dokumentasi || '', timestamp: r.timestamp || '' };
   });
   return stores.map(s => {
-    const k = s.plantCode.toUpperCase();
+    const k = s.plantCode.trim().toUpperCase();
     if (submitted[k]) return { ...s, status: STATUS.DONE, dokumentasi: submitted[k].dokumentasi };
     return { ...s, status: STATUS.NOT_DONE, dokumentasi: '' };
   });
@@ -139,7 +157,7 @@ function mergeStatusFromImport(stores, importData) {
 // ── PARSE EXCEL STORES ─────────────────────────────────────────────
 /**
  * Parse rows[][] dari satu sheet Excel (via SheetJS) menjadi array store objects.
- * Mencari header row yang mengandung kata "plant" atau "kode".
+ * Mencari header row yang mengandung kata "plant", "kode", atau "code".
  */
 function parseExcelStores(rows) {
   let headerIdx = 0;
@@ -147,7 +165,7 @@ function parseExcelStores(rows) {
 
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const joined = rows[i].map(c => String(c || '').trim().toLowerCase()).join(' ');
-    if (joined.includes('plant') || joined.includes('kode')) {
+    if (joined.includes('plant') || joined.includes('kode') || joined.includes('code')) {
       headerIdx = i;
       rows[i].forEach((h, idx) => {
         colMap[String(h || '').trim().toLowerCase()] = idx;
@@ -163,8 +181,8 @@ function parseExcelStores(rows) {
     return -1;
   };
 
-  const iCode   = findCol('plant code', 'kode toko', 'kode');
-  const iDesc   = findCol('plant desc', 'nama toko', 'plant description', 'desc');
+  const iCode   = findCol('plant code', 'kode toko', 'kode', 'code');
+  const iDesc   = findCol('plant desc', 'nama toko', 'plant description', 'store name', 'desc');
   const iRegion = findCol('region');
   const iCity   = findCol('kota', 'city', 'kab/kota');
   const iNo     = findCol('no.', 'no');
