@@ -29,6 +29,10 @@ async function loadStoreData(cid) {
       currentMasterData = parseMaster(rows, c.headerRow || DEFAULT_HEADER_ROW);
     }
 
+    // Populate WR cache agar Weekly Report bisa pakai data yang sudah ter-merge
+    window._eravisWrDataCache = window._eravisWrDataCache || {};
+    window._eravisWrDataCache[c.id] = currentMasterData.slice();
+
     allMasterToko = await fetchMasterToko(masterTokoConfig);
 
     // ── Populate region filter ──────────────────────────────────

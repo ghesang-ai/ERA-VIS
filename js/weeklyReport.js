@@ -88,46 +88,63 @@ async function _fetchWrData(filters) {
     const c = activeCampaigns[i];
     _wrUpdateLoadingText(`Memuat campaign ${i + 1}/${activeCampaigns.length}: ${c.name}`);
 
-    // ── Gunakan currentMasterData jika campaign ini sudah di-load ──────
-    // Ini memastikan angka Weekly Report identik dengan Data Toko
+    // ── Pilih sumber data: cache → currentMasterData → fetch ulang ────
     let merged = [];
 
-    if (c.id === loadedCampaignId &&
-        typeof currentMasterData !== 'undefined' && currentMasterData.length > 0) {
-      // Pakai data yang sudah di-load di halaman Data Toko (sudah ter-merge)
+    // Prioritas 1: Cache dari Data Toko (dijamin identik dengan tampilan Data Toko)
+    if (window._eravisWrDataCache && window._eravisWrDataCache[c.id]) {
+      merged = window._eravisWrDataCache[c.id];
+      console.log('[WR] cache hit:', c.name, merged.length, 'stores');
+
+    // Prioritas 2: currentMasterData jika campaign ini yang sedang di-load
+    } else if (c.id === loadedCampaignId &&
+               typeof currentMasterData !== 'undefined' && currentMasterData.length > 0) {
       merged = currentMasterData;
+      console.log('[WR] currentMasterData hit:', c.name, merged.length, 'stores');
 
     } else {
-      // ── Fetch ulang — ikuti pola PERSIS sama dengan stores.js ─────────
-      let masterStores = [];
-      let importRows   = [];
+      // Prioritas 3: Fetch ulang — ikuti pola PERSIS sama dengan stores.js
+      console.log('[WR] fetching fresh:', c.name, 'mode:', c.mode);
 
       try {
         if (c.mode === 'excel') {
-          // Excel mode: localStores sudah ada, tinggal fetch import
-          masterStores = Array.isArray(c.localStores) ? c.localStores : [];
+          // Excel mode: localStores sudah ada, merge dengan import responses
+          const masterStores = Array.isArray(c.localStores) ? c.localStores : [];
+          let importRows = [];
+          console.log('[WR] excel masterStores:', masterStores.length, 'responseSheetId:', c.responseSheetId);
           if (c.responseSheetId) {
-            // Import fetch punya try-catch SENDIRI agar gagal tidak mempengaruhi master
             try {
               importRows = await fetchSheet(c.responseSheetId, c.importSheet || DEFAULT_IMPORT_SHEET);
-            } catch (e) { /* sheet belum publish atau belum ada response — normal */ }
+              console.log('[WR] import rows:', importRows.length);
+            } catch (e) {
+              console.warn('[WR] import fetch failed:', c.name, e.message);
+            }
           }
+          const importData = parseImport(importRows);
+          console.log('[WR] import submissions parsed:', importData.length);
+          merged = mergeStatusFromImport(masterStores, importData);
+
         } else {
-          // Sheet mode: fetch master dari Google Sheets
-          const mRows  = await fetchSheet(c.spreadsheetId, c.masterSheet || DEFAULT_MASTER_SHEET);
-          masterStores = parseMaster(mRows, c.headerRow || DEFAULT_HEADER_ROW);
-          // Import fetch punya try-catch SENDIRI
-          try {
-            importRows = await fetchSheet(c.spreadsheetId, c.importSheet || DEFAULT_IMPORT_SHEET);
-          } catch (e) { /* silent */ }
+          // Sheet mode: parseMaster sudah punya status benar dari kolom STATUS di sheet.
+          // JANGAN pakai mergeStatusFromImport — itu mengacaukan status sheet mode.
+          // (stores.js loadStoreData juga hanya pakai parseMaster untuk sheet mode)
+          const mRows = await fetchSheet(c.spreadsheetId, c.masterSheet || DEFAULT_MASTER_SHEET);
+          merged = parseMaster(mRows, c.headerRow || DEFAULT_HEADER_ROW);
+          console.log('[WR] sheet mode parsed:', merged.length, 'stores');
         }
       } catch (err) {
-        console.warn('[weeklyReport] Fetch master gagal:', c.name, err.message);
+        console.warn('[WR] fetch error:', c.name, err.message);
       }
 
-      const importData = parseImport(importRows);
-      merged = mergeStatusFromImport(masterStores, importData);
+      // Simpan ke cache untuk panggilan berikutnya (dalam sesi ini)
+      if (merged.length > 0) {
+        window._eravisWrDataCache = window._eravisWrDataCache || {};
+        window._eravisWrDataCache[c.id] = merged;
+      }
     }
+
+    const doneCount = merged.filter(s => s.status === STATUS.DONE).length;
+    console.log('[WR]', c.name, '→ total:', merged.length, 'DONE:', doneCount, 'NOT DONE:', merged.length - doneCount);
 
     // ── Terapkan filter Region ke store-level ─────────────────────────
     const regionFilter  = filters.region;
