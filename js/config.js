@@ -110,27 +110,29 @@ const REMINDER_LEVELS = {
 
 // ── PAGE META (titles + sub-labels for topbar) ────────────────────
 const PAGE_TITLES = {
-  dashboard  : 'Dashboard',
-  stores     : 'Data Toko',
-  leaderboard: 'Leaderboard',
-  reminder   : 'Auto Reminder',
-  insights   : 'AI Insights',
-  logs       : 'Activity Log',
-  campaigns  : 'Campaigns',
-  settings   : 'Settings',
-  guide      : 'Setup Guide',
+  dashboard      : 'Dashboard',
+  stores         : 'Data Toko',
+  leaderboard    : 'Leaderboard',
+  'weekly-report': 'Weekly Report',
+  reminder       : 'Auto Reminder',
+  insights       : 'AI Insights',
+  logs           : 'Activity Log',
+  campaigns      : 'Campaigns',
+  settings       : 'Settings',
+  guide          : 'Setup Guide',
 };
 
 const PAGE_SUBLABELS = {
-  dashboard  : 'KPI + Progress Overview',
-  stores     : 'Data & Filter Toko',
-  leaderboard: 'Performance Ranking',
-  reminder   : 'WhatsApp Auto Reminder',
-  insights   : 'AI Analysis',
-  logs       : 'Activity History',
-  campaigns  : 'Kelola Campaign',
-  settings   : 'Konfigurasi',
-  guide      : 'Panduan Setup',
+  dashboard      : 'KPI + Progress Overview',
+  stores         : 'Data & Filter Toko',
+  leaderboard    : 'Performance Ranking',
+  'weekly-report': 'Generate Presentasi Senin Pagi',
+  reminder       : 'WhatsApp Auto Reminder',
+  insights       : 'AI Analysis',
+  logs           : 'Activity History',
+  campaigns      : 'Kelola Campaign',
+  settings       : 'Konfigurasi',
+  guide          : 'Panduan Setup',
 };
 
 
