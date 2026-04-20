@@ -25,6 +25,8 @@ function wrFmtDate(iso) {
  * @returns {string}
  */
 function wrFmtPeriod(start, end) {
+  // Jika hanya ada end/deadline, tampilkan "Deadline: DD Bulan YYYY"
+  if (!start && end)  return 'Deadline: ' + wrFmtDate(end);
   if (!start || !end) return '—';
   const s = new Date(start + 'T00:00:00');
   const e = new Date(end   + 'T00:00:00');

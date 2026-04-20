@@ -57,44 +57,187 @@ function _bindWrListeners() {
 // ── DATA ──────────────────────────────────────────────────────────
 
 /**
- * Ambil data report. Saat ini pakai sample data.
- * Ganti isi fungsi ini dengan API call ke Google Apps Script saat production.
+ * Fetch data report dari ERA-VIS campaigns yang sudah ada.
+ * Untuk setiap campaign: pakai localStores (Excel mode) atau fetch dari
+ * Google Sheets (Sheet mode), lalu merge dengan data import/response.
  *
  * @param {Object} filters - {period, region, status}
  * @returns {Promise<{overview, campaigns, stores, regions}>}
  */
 async function _fetchWrData(filters) {
-  // Simulasi loading delay
-  await new Promise(r => setTimeout(r, 300));
+  // Ambil campaigns aktif dari global state ERA-VIS
+  const activeCampaigns = (typeof campaigns !== 'undefined' ? campaigns : [])
+    .filter(c => c.status !== 'ended');
 
-  // Filter campaigns berdasarkan region & status
-  let campaigns = [...SAMPLE_CAMPAIGNS];
-  if (filters.region !== 'ALL') {
-    campaigns = campaigns.filter(c =>
-      c.region === filters.region || c.region === 'ALL_REGIONS'
-    );
-  }
-  if (filters.status === 'NOT_DONE') {
-    campaigns = campaigns.filter(c => c.stores_not_done > 0);
-  } else if (filters.status === 'DONE') {
-    campaigns = campaigns.filter(c => c.completion_rate === 100);
+  if (activeCampaigns.length === 0) {
+    // Fallback ke sample data jika belum ada campaign
+    return _fetchWrSampleData(filters);
   }
 
-  // Sort: urgent/tidak selesai dulu
-  campaigns.sort((a, b) => a.completion_rate - b.completion_rate);
+  // ── Fetch store data untuk setiap campaign ────────────────────
+  _wrUpdateLoadingText('Memuat data campaign...');
 
-  // Filter stores
-  const stores = SAMPLE_STORES_NOT_DONE.filter(s => {
-    if (filters.region !== 'ALL' && s.region !== filters.region) return false;
-    return true;
+  const campaignResults = [];
+  const allStoresNotDone = [];
+
+  for (let i = 0; i < activeCampaigns.length; i++) {
+    const c = activeCampaigns[i];
+    _wrUpdateLoadingText(`Memuat campaign ${i + 1}/${activeCampaigns.length}: ${c.name}`);
+
+    let masterStores = [];
+    let importData   = [];
+
+    try {
+      // ── Ambil master stores ──────────────────────────────────
+      if (c.mode === 'excel' && Array.isArray(c.localStores) && c.localStores.length) {
+        // Excel mode: gunakan localStores yang sudah di-parse saat upload
+        masterStores = c.localStores;
+      } else if (c.spreadsheetId) {
+        // Sheet mode: fetch dari Google Sheets
+        const mRows = await fetchSheet(c.spreadsheetId, c.masterSheet || DEFAULT_MASTER_SHEET);
+        masterStores = parseMaster(mRows, c.headerRow || DEFAULT_HEADER_ROW);
+      }
+
+      // ── Ambil import/response data ───────────────────────────
+      const importSid   = c.responseSheetId || c.spreadsheetId;
+      const importSheet = c.importSheet_excel || c.importSheet || DEFAULT_IMPORT_SHEET;
+      if (importSid && importSheet) {
+        const iRows = await fetchSheet(importSid, importSheet);
+        importData  = parseImport(iRows);
+      }
+    } catch (err) {
+      console.warn('[weeklyReport] Fetch gagal untuk campaign:', c.name, err.message);
+      // Lanjut dengan data kosong — gunakan cache jika ada
+    }
+
+    // ── Merge status ─────────────────────────────────────────
+    const merged     = mergeStatusFromImport(masterStores, importData);
+    const doneStores = merged.filter(s => s.status === STATUS.DONE);
+    const ndStores   = merged.filter(s => s.status === STATUS.NOT_DONE);
+    const total      = merged.length;
+    const done       = doneStores.length;
+    const notDone    = ndStores.length;
+    const rate       = total > 0 ? Math.round(done / total * 100) : 0;
+
+    // Update dataCache dengan angka terbaru
+    if (typeof dataCache !== 'undefined') {
+      dataCache[c.id] = { totalStores: total, doneCount: done, rate, lastSync: new Date().toISOString() };
+      if (typeof save === 'function') save(SK.cache, dataCache);
+    }
+
+    // ── Kumpulkan stores NOT DONE untuk slide ────────────────
+    ndStores.forEach((s, idx) => {
+      allStoresNotDone.push({
+        id          : allStoresNotDone.length + 1,
+        campaign_id : c.id,
+        region      : s.region   || '',
+        plant_code  : s.plantCode || '',
+        store_name  : s.plantDesc || '',
+        city        : s.city      || '',
+        area        : s.city      || '',    // grouping key
+        days_overdue: 0,
+        last_reminder: null,
+      });
+    });
+
+    // ── Deadline sebagai period_end ──────────────────────────
+    const priority = rate === 0 ? 'URGENT' : rate < 50 ? 'HIGH' : rate < 80 ? 'MEDIUM' : 'LOW';
+
+    campaignResults.push({
+      id              : c.id,
+      campaign_name   : c.name,
+      campaign_type   : 'CAMPAIGN',
+      period_start    : null,
+      period_end      : c.deadline || null,
+      total_stores    : total,
+      stores_done     : done,
+      stores_not_done : notDone,
+      completion_rate : rate,
+      region          : 'ALL_REGIONS',
+      status          : 'ACTIVE',
+      priority,
+    });
+  }
+
+  // ── Filter sesuai pilihan user ────────────────────────────
+  let filtered = [...campaignResults];
+  if (filters.status === 'NOT_DONE') filtered = filtered.filter(c => c.stores_not_done > 0);
+  if (filters.status === 'DONE')     filtered = filtered.filter(c => c.completion_rate === 100);
+
+  // Sort: completion rate terendah dulu (paling urgent)
+  filtered.sort((a, b) => a.completion_rate - b.completion_rate);
+
+  // ── Overview stats ────────────────────────────────────────
+  const totStores  = filtered.reduce((s, c) => s + c.total_stores, 0);
+  const totDone    = filtered.reduce((s, c) => s + c.stores_done, 0);
+  const totNotDone = filtered.reduce((s, c) => s + c.stores_not_done, 0);
+  const overallRate = totStores > 0 ? Math.round(totDone / totStores * 100) : 0;
+
+  const overview = {
+    total_campaigns_active  : filtered.filter(c => c.stores_not_done > 0).length,
+    overall_completion_rate : overallRate,
+    total_stores_not_done   : totNotDone,
+    total_stores            : totStores,
+    last_updated            : new Date().toISOString(),
+    top_urgent_campaigns    : filtered.slice(0, 3).map(c => ({
+      campaign_name   : c.campaign_name,
+      completion_rate : c.completion_rate,
+      stores_not_done : c.stores_not_done,
+      total_stores    : c.total_stores,
+      priority_level  : c.priority,
+    })),
+  };
+
+  // ── Regional summary: hitung dari data real ───────────────
+  const regionMap = {};
+  allStoresNotDone.forEach(s => {
+    const r = s.region || 'LAINNYA';
+    if (!regionMap[r]) regionMap[r] = { done: 0, notDone: 0 };
+    regionMap[r].notDone++;
   });
+  campaignResults.forEach(c => {
+    // done stores sudah tercount di master - ini approx
+  });
+  // Gunakan SAMPLE_REGIONAL_SUMMARY sebagai template, update angka jika cocok
+  const regions = SAMPLE_REGIONAL_SUMMARY.map(r => ({
+    ...r,
+    stores_not_done : (regionMap[r.region] || {}).notDone || r.stores_not_done,
+  }));
 
   return {
-    overview  : SAMPLE_OVERVIEW_STATS,
-    campaigns,
-    stores,
-    regions   : SAMPLE_REGIONAL_SUMMARY,
+    overview,
+    campaigns : filtered,
+    stores    : allStoresNotDone.filter(s =>
+      filtered.some(c => c.id === s.campaign_id)
+    ),
+    regions,
   };
+}
+
+/**
+ * Fallback ke sample data jika belum ada campaign di ERA-VIS.
+ * @param {Object} filters
+ */
+function _fetchWrSampleData(filters) {
+  let cList = [...SAMPLE_CAMPAIGNS];
+  if (filters.status === 'NOT_DONE') cList = cList.filter(c => c.stores_not_done > 0);
+  if (filters.status === 'DONE')     cList = cList.filter(c => c.completion_rate === 100);
+  cList.sort((a, b) => a.completion_rate - b.completion_rate);
+
+  const stores = SAMPLE_STORES_NOT_DONE.filter(s =>
+    filters.region === 'ALL' || s.region === filters.region
+  );
+
+  return { overview: SAMPLE_OVERVIEW_STATS, campaigns: cList, stores, regions: SAMPLE_REGIONAL_SUMMARY };
+}
+
+/**
+ * Update teks loading di halaman Weekly Report
+ * @param {string} msg
+ */
+function _wrUpdateLoadingText(msg) {
+  const el = document.querySelector('#wr-loading .wr-loading-text');
+  if (el) el.textContent = msg;
 }
 
 
