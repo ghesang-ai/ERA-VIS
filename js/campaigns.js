@@ -16,6 +16,36 @@ const MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli'
 const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 let _campActiveMonth = 'all';
 
+// ── BRAND ──────────────────────────────────────────────────────────
+let _activeBrand = 'erafone';
+const BRAND_META = {
+  erafone : { label: 'Erafone', subtitle: 'Kelola campaign visibility Erafone' },
+  ibox    : { label: 'IBOX',    subtitle: 'Kelola campaign visibility IBOX (Apple Premium Reseller)' },
+  samsung : { label: 'Samsung', subtitle: 'Kelola campaign visibility Samsung' },
+};
+
+function _setBrand(brand) {
+  _activeBrand = brand;
+  _campActiveMonth = 'all';
+  document.querySelectorAll('.brand-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.brand === brand);
+  });
+  const sub = document.getElementById('camp-brand-subtitle');
+  if (sub) sub.textContent = BRAND_META[brand]?.subtitle || '';
+  renderCampaignList();
+}
+
+function _updateBrandCounts() {
+  Object.keys(BRAND_META).forEach(b => {
+    const el = document.getElementById('brand-cnt-' + b);
+    if (el) el.textContent = campaigns.filter(c => (c.brand || 'erafone') === b).length;
+  });
+}
+
+function _brandedCampaigns() {
+  return campaigns.filter(c => (c.brand || 'erafone') === _activeBrand);
+}
+
 function _campDeadlineMonth(c) {
   if (!c.deadline) return null;
   return new Date(c.deadline).getMonth() + 1;
@@ -57,10 +87,11 @@ function _campRenderTabs() {
   const el = document.getElementById('campaign-month-tabs');
   if (!el) return;
   const now = new Date().getMonth() + 1;
-  const monthSet = new Set(campaigns.map(c => _campDeadlineMonth(c)).filter(Boolean));
+  const branded = _brandedCampaigns();
+  const monthSet = new Set(branded.map(c => _campDeadlineMonth(c)).filter(Boolean));
   let html = `<button class="camp-month-tab${_campActiveMonth==='all'?' active':' has-camp'}" onclick="_campSetMonth('all')">Semua</button>`;
   for (let m = 1; m <= 12; m++) {
-    const cnt  = campaigns.filter(c => _campDeadlineMonth(c) === m).length;
+    const cnt  = branded.filter(c => _campDeadlineMonth(c) === m).length;
     const has  = monthSet.has(m);
     const cls  = _campActiveMonth === m ? ' active' : (has ? ' has-camp' : '');
     const now_ = m === now && has ? '<span class="camp-now-badge">Now</span>' : '';
@@ -116,7 +147,10 @@ function renderCampaignList() {
   const em   = document.getElementById('campaigns-empty');
   if (!wrap) return;
 
-  if (!campaigns.length) {
+  _updateBrandCounts();
+  const branded = _brandedCampaigns();
+
+  if (!branded.length) {
     wrap.innerHTML = '';
     em.style.display = '';
     _campRenderTabs();
@@ -130,8 +164,8 @@ function renderCampaignList() {
 
   // filter by month
   let filtered = _campActiveMonth === 'all'
-    ? campaigns
-    : campaigns.filter(c => _campDeadlineMonth(c) === _campActiveMonth);
+    ? branded
+    : branded.filter(c => _campDeadlineMonth(c) === _campActiveMonth);
 
   filtered = _campSorted(filtered);
 
@@ -211,7 +245,8 @@ function populateAllSelects() {
 
 // ── OPEN ADD MODAL ─────────────────────────────────────────────────
 function openAddCampaign() {
-  document.getElementById('modal-add-title').textContent = 'Tambah Campaign';
+  const brandLabel = BRAND_META[_activeBrand]?.label || _activeBrand;
+  document.getElementById('modal-add-title').textContent = `Tambah Campaign · ${brandLabel}`;
   ['edit-campaign-id','inp-name','inp-form-link','inp-deadline','inp-response-sheet']
     .forEach(id => document.getElementById(id).value = '');
   document.getElementById('inp-master-sheet').value      = DEFAULT_MASTER_SHEET;
@@ -397,7 +432,7 @@ function saveCampaign() {
   } else {
     campaigns.push({
       id: 'c_' + Date.now(), name, formLink:fl, deadline:dl,
-      status:st, createdAt: new Date().toISOString(), ...obj,
+      status:st, brand: _activeBrand, createdAt: new Date().toISOString(), ...obj,
     });
     toast('Campaign ditambahkan!');
     addLog('system', 'Campaign baru: ' + name);

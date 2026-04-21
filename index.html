@@ -205,8 +205,8 @@
 
       <!-- ===== CAMPAIGNS ===== -->
       <div class="page" id="page-campaigns">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px">
-          <p style="color:var(--muted);font-size:12.5px">Kelola campaign visibility Erafone</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <p style="color:var(--muted);font-size:12.5px" id="camp-brand-subtitle">Kelola campaign visibility Erafone</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-sm btn-teal" onclick="shareCampaignsUrl()" title="Salin link untuk dibagikan ke pengguna lain">&#x1F517; Bagikan Link</button>
             <button class="btn btn-sm" onclick="importCampaigns()" title="Import campaigns dari file JSON">&#x2B06; Import</button>
@@ -214,6 +214,18 @@
             <button class="btn btn-sm" onclick="forcePushToCloud()" title="Push semua campaign lokal ke cloud sekarang">&#x2601; Sync ke Cloud</button>
             <button class="btn btn-primary" onclick="openAddCampaign()">+ Tambah Campaign</button>
           </div>
+        </div>
+        <!-- Brand switcher -->
+        <div class="brand-switcher" id="brand-switcher">
+          <button class="brand-tab active" data-brand="erafone" onclick="_setBrand('erafone')">
+            🏪 Erafone <span class="brand-count" id="brand-cnt-erafone">0</span>
+          </button>
+          <button class="brand-tab" data-brand="ibox" onclick="_setBrand('ibox')">
+            🍎 IBOX <span class="brand-count" id="brand-cnt-ibox">0</span>
+          </button>
+          <button class="brand-tab" data-brand="samsung" onclick="_setBrand('samsung')">
+            📱 Samsung <span class="brand-count" id="brand-cnt-samsung">0</span>
+          </button>
         </div>
         <!-- Month filter + sort toolbar -->
         <div class="month-toolbar">

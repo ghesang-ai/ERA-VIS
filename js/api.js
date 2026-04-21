@@ -122,15 +122,52 @@ function normalizeKodeStore(raw) {
 // ── PARSE IMPORTING (form responses) ──────────────────────────────
 /**
  * Parse rows[][] dari sheet IMPORTING menjadi array submission objects.
+ * Auto-detect kolom dari header row — support format Erafone & iBox.
+ * iBox headers: Timestamp | STORE APPLE ID | NAMA STORE | PROGRAM | KODE BU | REGION | ... | DOKUMENTASI EASEL
  */
 function parseImport(rows) {
   if (rows.length < 2) return [];
-  return rows.slice(1).filter(r => r[0]).map(r => ({
-    timestamp   : r[COL_IMPORT.TIMESTAMP]   || '',
-    kodeStore   : normalizeKodeStore(r[COL_IMPORT.KODE_STORE]),
-    namaStore   : (r[COL_IMPORT.NAMA_STORE]  || '').trim(),
-    region      : (r[COL_IMPORT.REGION]      || '').trim(),
-    dokumentasi : (r[COL_IMPORT.DOKUMENTASI] || r[COL_IMPORT.REGION] || '').trim(),
+
+  // Deteksi apakah row[0] adalah header
+  const firstLower = rows[0].map(c => String(c || '').trim().toLowerCase());
+  const hasHeader  = firstLower.some(h =>
+    h.includes('timestamp') || h.includes('kode') || h.includes('store apple')
+  );
+
+  let dataRows = rows;
+  let tIdx = COL_IMPORT.TIMESTAMP;
+  let kIdx = COL_IMPORT.KODE_STORE;
+  let nIdx = COL_IMPORT.NAMA_STORE;
+  let rIdx = COL_IMPORT.REGION;
+  let dIdx = COL_IMPORT.DOKUMENTASI;
+
+  if (hasHeader) {
+    dataRows = rows.slice(1);
+    const findCol = (...keywords) => {
+      for (const kw of keywords) {
+        const i = firstLower.findIndex(h => h.includes(kw));
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    const t = findCol('timestamp', 'waktu');
+    const k = findCol('kode bu', 'kode store', 'kode_store', 'plant code', 'store apple');
+    const n = findCol('nama store', 'nama toko', 'store name');
+    const r = findCol('region');
+    const d = findCol('dokumentasi easel', 'dokumentasi', 'store front', 'close up', 'foto');
+    if (t >= 0) tIdx = t;
+    if (k >= 0) kIdx = k;
+    if (n >= 0) nIdx = n;
+    if (r >= 0) rIdx = r;
+    if (d >= 0) dIdx = d;
+  }
+
+  return dataRows.filter(r => r[tIdx]).map(r => ({
+    timestamp   : r[tIdx] || '',
+    kodeStore   : normalizeKodeStore(r[kIdx]),
+    namaStore   : (r[nIdx] || '').trim(),
+    region      : (r[rIdx] || '').trim(),
+    dokumentasi : (r[dIdx] || '').trim(),
   }));
 }
 

@@ -605,6 +605,34 @@ tr:hover td { background: rgba(37,99,235,.02); }
 .camp-group-line { flex: 1; height: 1px; background: var(--border); min-width: 20px; }
 .camp-group-cnt  { font-size: 11px; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
 
+/* ── BRAND SWITCHER TABS ─────────────────────────────────────── */
+.brand-switcher {
+  display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.brand-tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 18px; border-radius: 10px; cursor: pointer;
+  border: 2px solid var(--border); background: var(--white);
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  transition: all .18s;
+}
+.brand-tab:hover { border-color: var(--border2); color: var(--ink); box-shadow: var(--shadow); }
+.brand-tab .brand-count {
+  font-size: 10px; font-weight: 700; font-family: var(--mono);
+  background: var(--page); color: var(--muted); padding: 1px 6px;
+  border-radius: 8px; margin-left: 2px;
+}
+.brand-tab.active[data-brand="erafone"] { background: var(--teal); border-color: var(--teal); color: #fff; }
+.brand-tab.active[data-brand="erafone"] .brand-count { background: rgba(255,255,255,.2); color: #fff; }
+.brand-tab.active[data-brand="ibox"]    { background: #1D1D1F; border-color: #1D1D1F; color: #fff; }
+.brand-tab.active[data-brand="ibox"]    .brand-count { background: rgba(255,255,255,.15); color: #fff; }
+.brand-tab.active[data-brand="samsung"] { background: #1428A0; border-color: #1428A0; color: #fff; }
+.brand-tab.active[data-brand="samsung"] .brand-count { background: rgba(255,255,255,.2); color: #fff; }
+.camp-brand-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.camp-brand-dot.erafone { background: var(--teal); }
+.camp-brand-dot.ibox    { background: #1D1D1F; }
+.camp-brand-dot.samsung { background: #1428A0; }
+
 /* ── DEADLINE BADGE ──────────────────────────────────────────── */
 .dl-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; font-family: var(--mono); }
 .dl-ended  { background: var(--border);    color: var(--muted); }
