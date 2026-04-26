@@ -89,12 +89,15 @@ async function generateSummaryReport() {
   if (srState.generating) return;
   srState.generating = true;
 
-  const sel      = document.getElementById('sr-month-select');
-  const monthKey = sel ? sel.value : 'current';
-  const info     = _srMonthInfo(monthKey);
+  const sel       = document.getElementById('sr-month-select');
+  const regSel    = document.getElementById('sr-region-select');
+  const monthKey  = sel    ? sel.value    : 'current';
+  const regionKey = regSel ? regSel.value : 'ALL';
+  const info      = _srMonthInfo(monthKey);
 
   srState.monthKey   = monthKey;
   srState.monthLabel = info.label;
+  srState.regionKey  = regionKey;
 
   _srShowEmpty(false);
   _srShowLoading(true);
@@ -116,23 +119,35 @@ async function generateSummaryReport() {
       filtered = allCampaigns.filter(c => c.status === 'active');
     }
 
-    // Build rows
+    // Build rows — apply region filter at store level
     let rowNum = 1;
-    const rows = filtered.map(c => {
-      let alokasi = 0, kirimDok = 0, pct = 0;
+    const rows = [];
 
-      // Try dataCache first (most accurate — matches Dashboard numbers)
-      if (typeof dataCache !== 'undefined' && dataCache[c.id]) {
+    for (const c of filtered) {
+      let alokasi = 0, kirimDok = 0, pct = 0;
+      const stores = Array.isArray(c.localStores) ? c.localStores : [];
+
+      if (regionKey !== 'ALL') {
+        // Filter stores by region, recalculate from localStores
+        const inRegion = stores.filter(s =>
+          (s.region || '').toUpperCase().trim() === regionKey.toUpperCase().trim()
+        );
+        if (inRegion.length === 0) continue; // skip campaign — no stores in this region
+        alokasi  = inRegion.length;
+        kirimDok = inRegion.filter(s => s.status === 'DONE').length;
+        pct      = Math.round(kirimDok / alokasi * 100);
+      } else if (typeof dataCache !== 'undefined' && dataCache[c.id]) {
+        // Semua Region — prefer dataCache (matches Dashboard)
         alokasi  = dataCache[c.id].totalStores || 0;
         kirimDok = dataCache[c.id].doneCount   || 0;
         pct      = dataCache[c.id].rate        || 0;
-      } else if (Array.isArray(c.localStores) && c.localStores.length > 0) {
-        alokasi  = c.localStores.length;
-        kirimDok = c.localStores.filter(s => s.status === 'DONE').length;
+      } else if (stores.length > 0) {
+        alokasi  = stores.length;
+        kirimDok = stores.filter(s => s.status === 'DONE').length;
         pct      = alokasi > 0 ? Math.round(kirimDok / alokasi * 100) : 0;
       }
 
-      return {
+      rows.push({
         no        : rowNum++,
         visibility: c.name || '—',
         materi    : _deriveMateri(c),
@@ -140,16 +155,17 @@ async function generateSummaryReport() {
         kirimDok,
         pct,
         periode   : _srFmtPeriode(c),
-      };
-    });
+      });
+    }
 
     // Add empty row at end (matches design)
     rows.push({ no: rowNum, visibility: '', materi: '', alokasi: '', kirimDok: '', pct: '', periode: '' });
 
     srState.tableData = rows;
 
-    _renderSrTable(rows, info.label);
-    _buildSrSlide(rows, info.label);
+    const regionLabel = regionKey === 'ALL' ? '' : ` — ${regionKey}`;
+    _renderSrTable(rows, info.label + regionLabel);
+    _buildSrSlide(rows, info.label + regionLabel);
     _srShowPreview(true);
 
     const pdfBtn1 = document.getElementById('sr-export-pdf-btn');
