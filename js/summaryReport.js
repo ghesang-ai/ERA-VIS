@@ -1,6 +1,6 @@
 /* ================================================================
    ERA-VIS AI v2.0 — summaryReport.js
-   Summary Weekly Report — tabel semua campaign per bulan
+   Summary Weekly Report — tabel semua campaign per bulan / region
    ================================================================ */
 'use strict';
 
@@ -8,6 +8,7 @@
 const srState = {
   monthKey  : 'current',
   monthLabel: 'April 2026',
+  regionKey : 'ALL',
   tableData : [],
   generating: false,
   _init     : false,
@@ -24,7 +25,7 @@ function initSummaryReport() {
   if (srState.tableData.length === 0) {
     _srShowEmpty(true);
   } else {
-    _renderSrTable(srState.tableData, srState.monthLabel);
+    _renderSrPage(srState.tableData, srState.monthLabel, srState.regionKey);
     _scaleSrSlide();
   }
 }
@@ -33,53 +34,60 @@ function initSummaryReport() {
 // ── HELPERS ───────────────────────────────────────────────────────
 
 const SR_MONTH_MAP = {
-  'jan_2026': { label: 'Januari 2026',  num: 1,  year: 2026 },
-  'feb_2026': { label: 'Februari 2026', num: 2,  year: 2026 },
-  'mar_2026': { label: 'Maret 2026',    num: 3,  year: 2026 },
-  'current' : { label: 'April 2026',   num: 4,  year: 2026 },
-  'apr_2026': { label: 'April 2026',   num: 4,  year: 2026 },
-  'may_2026': { label: 'Mei 2026',     num: 5,  year: 2026 },
-  'jun_2026': { label: 'Juni 2026',    num: 6,  year: 2026 },
+  'jan_2026': { label: 'Januari 2026',  num: 1, year: 2026 },
+  'feb_2026': { label: 'Februari 2026', num: 2, year: 2026 },
+  'mar_2026': { label: 'Maret 2026',    num: 3, year: 2026 },
+  'current' : { label: 'April 2026',   num: 4, year: 2026 },
+  'apr_2026': { label: 'April 2026',   num: 4, year: 2026 },
+  'may_2026': { label: 'Mei 2026',     num: 5, year: 2026 },
+  'jun_2026': { label: 'Juni 2026',    num: 6, year: 2026 },
 };
 
 function _srMonthInfo(key) {
   return SR_MONTH_MAP[key] || SR_MONTH_MAP['current'];
 }
 
-// Derive Materi from campaign name prefix + brand
-function _deriveMateri(c) {
-  const name  = (c.name || '').toUpperCase();
-  const brand = (c.brand || '').toUpperCase();
-  const types = ['EASEL', 'HANGING', 'WOBBLER', 'POSTER', 'BANNER', 'STANDEE', 'LIGHTBOX', 'BACKDROP'];
-  const prefix = types.find(t => name.startsWith(t)) || name.split(' ')[0] || '—';
-  const brandMap = { ERAFONE: 'ERAFONE', IBOX: 'IBOX', SAMSUNG: 'SAMSUNG' };
-  // Check if "NASA" appears in the name as a store-scope indicator
-  const isNasa   = /\bNASA\b/.test(name);
-  const brandStr = isNasa ? 'NASA' : (brandMap[brand] || brand);
-  return prefix + ' ' + brandStr;
-}
-
-// Format deadline → "1 - DD Bulan"
-function _srFmtPeriode(c) {
-  if (!c.deadline) return '—';
-  const d = new Date(c.deadline + 'T00:00:00');
-  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
-  const shortMonths = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  return `1 - ${d.getDate()} ${months[d.getMonth()]}`;
-}
-
-// Format long period for slide label
-function _srFmtPeriodeFull(c) {
-  if (!c.deadline) return '—';
-  const d = new Date(c.deadline + 'T00:00:00');
-  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
-  return `1 - ${d.getDate()} ${months[d.getMonth()]}`;
-}
-
 function _campaignInMonth(c, num, year) {
   if (!c.deadline) return false;
   const dl = new Date(c.deadline + 'T00:00:00');
   return dl.getMonth() + 1 === num && dl.getFullYear() === year;
+}
+
+function _deriveMateri(c) {
+  const name  = (c.name || '').toUpperCase();
+  const brand = (c.brand || '').toUpperCase();
+  const types = ['EASEL','HANGING','WOBBLER','POSTER','BANNER','STANDEE','LIGHTBOX','BACKDROP','SIGNBOARD','VISIBILITY','NBFI','BERALIH'];
+  const prefix = types.find(t => name.startsWith(t)) || name.split(' ')[0] || '—';
+  const isNasa   = /\bNASA\b/.test(name);
+  const brandMap = { ERAFONE: 'ERAFONE', IBOX: 'IBOX', SAMSUNG: 'SAMSUNG' };
+  const brandStr = isNasa ? 'NASA' : (brandMap[brand] || brand || '');
+  return brandStr ? prefix + ' ' + brandStr : prefix;
+}
+
+function _srFmtPeriode(c) {
+  if (!c.deadline) return '—';
+  const d = new Date(c.deadline + 'T00:00:00');
+  const m = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+  return `1 - ${d.getDate()} ${m[d.getMonth()]}`;
+}
+
+// Priority badge dari % completion
+function _srBadge(pct) {
+  if (pct === 100) return { label: '✅ SELESAI',    color: '#16A34A', bg: '#DCFCE7' };
+  if (pct >= 80)   return { label: '🟢 HAMPIR',     color: '#0B8F6C', bg: '#D1FAE5' };
+  if (pct >= 50)   return { label: '🟡 PROGRES',    color: '#B45309', bg: '#FEF3C7' };
+  if (pct > 0)     return { label: '🔴 FOLLOW UP',  color: '#DC2626', bg: '#FEE2E2' };
+  return               { label: '🔴 KRITIS',     color: '#991B1B', bg: '#FEE2E2' };
+}
+
+// Ambil stores dengan status REAL dari cache WR, fallback ke localStores
+function _getStores(c) {
+  // Prioritas 1: WR data cache — berisi status real hasil merge Sheet/Excel
+  if (window._eravisWrDataCache && window._eravisWrDataCache[c.id]) {
+    return window._eravisWrDataCache[c.id];
+  }
+  // Prioritas 2: localStores dari campaign object
+  return Array.isArray(c.localStores) ? c.localStores : [];
 }
 
 
@@ -89,10 +97,8 @@ async function generateSummaryReport() {
   if (srState.generating) return;
   srState.generating = true;
 
-  const sel       = document.getElementById('sr-month-select');
-  const regSel    = document.getElementById('sr-region-select');
-  const monthKey  = sel    ? sel.value    : 'current';
-  const regionKey = regSel ? regSel.value : 'ALL';
+  const monthKey  = (document.getElementById('sr-month-select')  || {}).value || 'current';
+  const regionKey = (document.getElementById('sr-region-select') || {}).value || 'ALL';
   const info      = _srMonthInfo(monthKey);
 
   srState.monthKey   = monthKey;
@@ -107,44 +113,48 @@ async function generateSummaryReport() {
   if (genBtn) { genBtn.disabled = true; genBtn.textContent = '⏳ Generating...'; }
 
   try {
-    await new Promise(r => setTimeout(r, 100)); // let UI paint
+    await new Promise(r => setTimeout(r, 80));
 
     const allCampaigns = typeof campaigns !== 'undefined' ? campaigns : [];
 
-    // Filter: campaigns with deadline in chosen month, or all active if current
+    // Filter campaign berdasarkan deadline bulan
     let filtered = allCampaigns.filter(c => _campaignInMonth(c, info.num, info.year));
-
-    // Fallback: if none match by deadline, include active campaigns for current month
     if (filtered.length === 0 && monthKey === 'current') {
       filtered = allCampaigns.filter(c => c.status === 'active');
     }
 
-    // Build rows — apply region filter at store level
+    // Build rows dengan region filter di level store
     let rowNum = 1;
     const rows = [];
 
     for (const c of filtered) {
-      let alokasi = 0, kirimDok = 0, pct = 0;
-      const stores = Array.isArray(c.localStores) ? c.localStores : [];
+      const allStores = _getStores(c);
 
+      let scopedStores;
       if (regionKey !== 'ALL') {
-        // Filter stores by region, recalculate from localStores
-        const inRegion = stores.filter(s =>
+        scopedStores = allStores.filter(s =>
           (s.region || '').toUpperCase().trim() === regionKey.toUpperCase().trim()
         );
-        if (inRegion.length === 0) continue; // skip campaign — no stores in this region
-        alokasi  = inRegion.length;
-        kirimDok = inRegion.filter(s => s.status === 'DONE').length;
-        pct      = Math.round(kirimDok / alokasi * 100);
-      } else if (typeof dataCache !== 'undefined' && dataCache[c.id]) {
-        // Semua Region — prefer dataCache (matches Dashboard)
-        alokasi  = dataCache[c.id].totalStores || 0;
-        kirimDok = dataCache[c.id].doneCount   || 0;
-        pct      = dataCache[c.id].rate        || 0;
-      } else if (stores.length > 0) {
-        alokasi  = stores.length;
-        kirimDok = stores.filter(s => s.status === 'DONE').length;
-        pct      = alokasi > 0 ? Math.round(kirimDok / alokasi * 100) : 0;
+        if (scopedStores.length === 0) continue;
+      } else {
+        scopedStores = allStores;
+      }
+
+      let alokasi, done, notDone, pct;
+
+      if (scopedStores.length > 0) {
+        alokasi = scopedStores.length;
+        done    = scopedStores.filter(s => (s.status || '').toUpperCase() === 'DONE').length;
+        notDone = alokasi - done;
+        pct     = Math.round(done / alokasi * 100);
+      } else if (regionKey === 'ALL' && typeof dataCache !== 'undefined' && dataCache[c.id]) {
+        // Fallback ke dataCache hanya jika ALL region dan tidak ada store data
+        alokasi = dataCache[c.id].totalStores || 0;
+        done    = dataCache[c.id].doneCount   || 0;
+        notDone = alokasi - done;
+        pct     = dataCache[c.id].rate        || 0;
+      } else {
+        alokasi = 0; done = 0; notDone = 0; pct = 0;
       }
 
       rows.push({
@@ -152,26 +162,22 @@ async function generateSummaryReport() {
         visibility: c.name || '—',
         materi    : _deriveMateri(c),
         alokasi,
-        kirimDok,
+        done,
+        notDone,
         pct,
         periode   : _srFmtPeriode(c),
       });
     }
 
-    // Add empty row at end (matches design)
-    rows.push({ no: rowNum, visibility: '', materi: '', alokasi: '', kirimDok: '', pct: '', periode: '' });
-
     srState.tableData = rows;
 
-    const regionLabel = regionKey === 'ALL' ? '' : ` — ${regionKey}`;
-    _renderSrTable(rows, info.label + regionLabel);
-    _buildSrSlide(rows, info.label + regionLabel);
+    _renderSrPage(rows, info.label, regionKey);
     _srShowPreview(true);
 
-    const pdfBtn1 = document.getElementById('sr-export-pdf-btn');
-    const pdfBtn2 = document.getElementById('sr-export-pdf-btn2');
-    if (pdfBtn1) pdfBtn1.disabled = false;
-    if (pdfBtn2) pdfBtn2.disabled = false;
+    ['sr-export-pdf-btn','sr-export-pdf-btn2'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.disabled = false;
+    });
 
     toast('Summary report berhasil di-generate!', 'success');
 
@@ -187,42 +193,84 @@ async function generateSummaryReport() {
 }
 
 
-// ── RENDER TABLE (in-page view) ───────────────────────────────────
+// ── RENDER (table + slide) ────────────────────────────────────────
 
-function _renderSrTable(rows, monthLabel) {
+function _renderSrPage(rows, monthLabel, regionKey) {
+  const regionLabel = regionKey !== 'ALL' ? regionKey : 'Semua Region';
+  const fullTitle   = `${monthLabel} — ${regionLabel}`;
+
+  _renderSrTable(rows, fullTitle);
+  _buildSrSlide(rows, fullTitle);
+}
+
+
+// ── TABLE VIEW ────────────────────────────────────────────────────
+
+function _renderSrTable(rows, title) {
   const wrap = document.getElementById('sr-table-wrap');
   if (!wrap) return;
 
-  if (!rows || rows.filter(r => r.visibility).length === 0) {
-    wrap.innerHTML = '<div class="empty-state"><div class="ico">📋</div><p>Tidak ada campaign untuk bulan ini.<br>Pastikan deadline campaign sesuai bulan yang dipilih.</p></div>';
+  if (!rows || rows.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><div class="ico">📋</div>
+      <p>Tidak ada campaign untuk filter ini.<br>Pastikan deadline campaign sesuai bulan yang dipilih.</p></div>`;
     return;
   }
 
+  // KPI totals
+  const totAlokasi = rows.reduce((s, r) => s + (r.alokasi || 0), 0);
+  const totDone    = rows.reduce((s, r) => s + (r.done    || 0), 0);
+  const totNotDone = rows.reduce((s, r) => s + (r.notDone || 0), 0);
+  const totPct     = totAlokasi > 0 ? Math.round(totDone / totAlokasi * 100) : 0;
+  const totPctColor = totPct >= 80 ? '#16A34A' : totPct >= 50 ? '#D97706' : '#DC2626';
+
+  const kpiHtml = `
+    <div class="sr-kpi-bar">
+      <div class="sr-kpi-card">
+        <div class="sr-kpi-val">${rows.length}</div>
+        <div class="sr-kpi-lbl">Campaign Aktif</div>
+      </div>
+      <div class="sr-kpi-card">
+        <div class="sr-kpi-val">${totAlokasi}</div>
+        <div class="sr-kpi-lbl">Total Alokasi</div>
+      </div>
+      <div class="sr-kpi-card sr-kpi-green">
+        <div class="sr-kpi-val">${totDone}</div>
+        <div class="sr-kpi-lbl">Sudah Kirim</div>
+      </div>
+      <div class="sr-kpi-card sr-kpi-red">
+        <div class="sr-kpi-val">${totNotDone}</div>
+        <div class="sr-kpi-lbl">Belum Kirim</div>
+      </div>
+      <div class="sr-kpi-card sr-kpi-pct">
+        <div class="sr-kpi-val" style="color:${totPctColor}">${totPct}%</div>
+        <div class="sr-kpi-lbl">Overall Done</div>
+      </div>
+    </div>`;
+
   const rowsHtml = rows.map(r => {
-    if (!r.visibility) {
-      return `<tr class="sr-row sr-row-empty">
-        <td class="sr-td sr-td-no">${r.no}</td>
-        <td class="sr-td" colspan="6"></td>
-      </tr>`;
-    }
-    const pctNum   = typeof r.pct === 'number' ? r.pct : 0;
-    const pctColor = pctNum === 100 ? '#16A34A' : pctNum >= 80 ? '#0B8F6C' : pctNum >= 50 ? '#D97706' : '#DC2626';
-    const under    = typeof r.kirimDok === 'number' && typeof r.alokasi === 'number' && r.kirimDok < r.alokasi;
+    const pct     = typeof r.pct === 'number' ? r.pct : 0;
+    const badge   = _srBadge(pct);
+    const pctColor = pct === 100 ? '#16A34A' : pct >= 80 ? '#0B8F6C' : pct >= 50 ? '#B45309' : '#DC2626';
     return `<tr class="sr-row">
       <td class="sr-td sr-td-no">${r.no}</td>
       <td class="sr-td sr-td-visibility">${r.visibility}</td>
       <td class="sr-td sr-td-materi">${r.materi}</td>
       <td class="sr-td sr-td-num">${r.alokasi}</td>
-      <td class="sr-td sr-td-num" style="font-weight:${under?700:400};color:${under?'#DC2626':'inherit'}">${r.kirimDok !== '' ? r.kirimDok : '—'}</td>
-      <td class="sr-td sr-td-pct" style="color:${pctColor}">${r.pct !== '' ? r.pct + '%' : ''}</td>
+      <td class="sr-td sr-td-num sr-done">${r.done}</td>
+      <td class="sr-td sr-td-num sr-notdone">${r.notDone}</td>
+      <td class="sr-td sr-td-pct" style="color:${pctColor}">${pct}%</td>
+      <td class="sr-td sr-td-badge"><span class="sr-badge" style="color:${badge.color};background:${badge.bg}">${badge.label}</span></td>
       <td class="sr-td sr-td-periode">${r.periode}</td>
     </tr>`;
   }).join('');
 
+  const totalBadge = _srBadge(totPct);
+
   wrap.innerHTML = `
     <div class="sr-table-header">
-      <h2 class="sr-table-title">Report Dokumentasi Visibility &mdash; ${monthLabel}</h2>
+      <h2 class="sr-table-title">Report Dokumentasi Visibility &mdash; ${title}</h2>
     </div>
+    ${kpiHtml}
     <div class="sr-table-scroll">
       <table class="sr-table">
         <thead>
@@ -231,12 +279,25 @@ function _renderSrTable(rows, monthLabel) {
             <th class="sr-th">VISIBILITY</th>
             <th class="sr-th">MATERI</th>
             <th class="sr-th sr-th-num">ALOKASI</th>
-            <th class="sr-th sr-th-num">KIRIM DOK</th>
+            <th class="sr-th sr-th-num" style="color:#86EFAC">DONE</th>
+            <th class="sr-th sr-th-num" style="color:#FCA5A5">BELUM</th>
             <th class="sr-th sr-th-num">%</th>
+            <th class="sr-th">STATUS</th>
             <th class="sr-th">PERIODE</th>
           </tr>
         </thead>
-        <tbody>${rowsHtml}</tbody>
+        <tbody>
+          ${rowsHtml}
+          <tr class="sr-row-total">
+            <td class="sr-td" colspan="3" style="font-weight:700;color:#1E293B;padding:10px 14px">TOTAL</td>
+            <td class="sr-td sr-td-num" style="font-weight:800">${totAlokasi}</td>
+            <td class="sr-td sr-td-num sr-done" style="font-weight:800">${totDone}</td>
+            <td class="sr-td sr-td-num sr-notdone" style="font-weight:800">${totNotDone}</td>
+            <td class="sr-td sr-td-pct" style="color:${totPctColor};font-weight:900;font-size:15px">${totPct}%</td>
+            <td class="sr-td"><span class="sr-badge" style="color:${totalBadge.color};background:${totalBadge.bg}">${totalBadge.label}</span></td>
+            <td class="sr-td"></td>
+          </tr>
+        </tbody>
       </table>
     </div>`;
 }
@@ -244,95 +305,122 @@ function _renderSrTable(rows, monthLabel) {
 
 // ── SLIDE HTML ────────────────────────────────────────────────────
 
-function _buildSrSlide(rows, monthLabel) {
-  const html   = _genSrSlideHtml(rows, monthLabel);
+function _buildSrSlide(rows, title) {
   const scaler = document.getElementById('sr-slide-scaler');
   if (scaler) {
-    scaler.innerHTML = html;
+    scaler.innerHTML = _genSrSlideHtml(rows, title);
     _scaleSrSlide();
   }
 }
 
-function _genSrSlideHtml(rows, monthLabel) {
-  // Filter out the trailing empty row for slide — keep only real rows
-  const realRows = rows.filter(r => r.visibility !== '');
-  const emptyRow = { no: realRows.length + 1, visibility: '', materi: '', alokasi: '', kirimDok: '', pct: '', periode: '' };
-  const allRows  = [...realRows, emptyRow];
+function _genSrSlideHtml(rows, title) {
+  const totAlokasi = rows.reduce((s, r) => s + (r.alokasi || 0), 0);
+  const totDone    = rows.reduce((s, r) => s + (r.done    || 0), 0);
+  const totNotDone = rows.reduce((s, r) => s + (r.notDone || 0), 0);
+  const totPct     = totAlokasi > 0 ? Math.round(totDone / totAlokasi * 100) : 0;
+  const totPctColor = totPct >= 80 ? '#16A34A' : totPct >= 50 ? '#D97706' : '#DC2626';
 
-  const fontSize   = realRows.length > 10 ? '10.5px' : '12px';
-  const rowPadding = realRows.length > 10 ? '5px 8px' : '7px 10px';
+  const fs  = rows.length > 9 ? '10px'  : '11.5px';
+  const pad = rows.length > 9 ? '5px 7px' : '7px 10px';
 
-  const rowsHtml = allRows.map((r, i) => {
-    const bg = i % 2 === 0 ? '#FFFFFF' : '#F0F3FA';
-    if (!r.visibility) {
-      return `<tr style="background:${bg}">
-        <td style="padding:${rowPadding};text-align:center;font-size:${fontSize};color:#94A3B8;border-bottom:1px solid #E8ECF4">${r.no}</td>
-        <td colspan="6" style="border-bottom:1px solid #E8ECF4"></td>
-      </tr>`;
-    }
-    const pctNum   = typeof r.pct === 'number' ? r.pct : 0;
-    const pctColor = pctNum === 100 ? '#16A34A' : pctNum >= 80 ? '#0B8F6C' : pctNum >= 50 ? '#D97706' : '#DC2626';
-    const under    = typeof r.kirimDok === 'number' && typeof r.alokasi === 'number' && r.kirimDok < r.alokasi;
+  const rowsHtml = rows.map((r, i) => {
+    const bg    = i % 2 === 0 ? '#FFFFFF' : '#F0F4FF';
+    const pct   = typeof r.pct === 'number' ? r.pct : 0;
+    const pctC  = pct === 100 ? '#16A34A' : pct >= 80 ? '#0B8F6C' : pct >= 50 ? '#B45309' : '#DC2626';
+    const badge = _srBadge(pct);
+    const cell  = `padding:${pad};border-bottom:1px solid #E8ECF4`;
     return `<tr style="background:${bg}">
-      <td style="padding:${rowPadding};text-align:center;font-size:${fontSize};color:#64748B;border-bottom:1px solid #E8ECF4">${r.no}</td>
-      <td style="padding:${rowPadding};font-size:${fontSize};font-weight:500;color:#1E293B;border-bottom:1px solid #E8ECF4">${r.visibility}</td>
-      <td style="padding:${rowPadding};font-size:${fontSize};color:#475569;border-bottom:1px solid #E8ECF4">${r.materi}</td>
-      <td style="padding:${rowPadding};text-align:center;font-size:${fontSize};color:#1E293B;border-bottom:1px solid #E8ECF4">${r.alokasi}</td>
-      <td style="padding:${rowPadding};text-align:center;font-size:${fontSize};font-weight:${under?700:400};color:${under?'#DC2626':'#1E293B'};border-bottom:1px solid #E8ECF4">${r.kirimDok !== '' ? r.kirimDok : '—'}</td>
-      <td style="padding:${rowPadding};text-align:center;font-size:${fontSize};font-weight:800;color:${pctColor};border-bottom:1px solid #E8ECF4">${r.pct !== '' ? r.pct + '%' : ''}</td>
-      <td style="padding:${rowPadding};text-align:center;font-size:${fontSize};font-weight:600;color:#1E293B;border-bottom:1px solid #E8ECF4">${r.periode}</td>
+      <td style="${cell};text-align:center;font-size:${fs};color:#94A3B8">${r.no}</td>
+      <td style="${cell};font-size:${fs};font-weight:600;color:#1E293B">${r.visibility}</td>
+      <td style="${cell};font-size:${fs};color:#475569">${r.materi}</td>
+      <td style="${cell};text-align:center;font-size:${fs};color:#1E293B">${r.alokasi}</td>
+      <td style="${cell};text-align:center;font-size:${fs};font-weight:700;color:#16A34A">${r.done}</td>
+      <td style="${cell};text-align:center;font-size:${fs};font-weight:700;color:#DC2626">${r.notDone}</td>
+      <td style="${cell};text-align:center;font-size:${fs};font-weight:900;color:${pctC}">${pct}%</td>
+      <td style="${cell};text-align:center"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;color:${badge.color};background:${badge.bg}">${badge.label}</span></td>
+      <td style="${cell};text-align:center;font-size:${fs};font-weight:600;color:#1E293B">${r.periode}</td>
     </tr>`;
   }).join('');
 
+  const totalBadge = _srBadge(totPct);
+  const totalRow = `<tr style="background:#EEF2FF;border-top:2px solid #3B5CE5">
+    <td colspan="3" style="padding:${pad};font-size:${fs};font-weight:800;color:#1E293B;letter-spacing:.3px">TOTAL</td>
+    <td style="padding:${pad};text-align:center;font-size:${fs};font-weight:800;color:#1E293B">${totAlokasi}</td>
+    <td style="padding:${pad};text-align:center;font-size:${fs};font-weight:800;color:#16A34A">${totDone}</td>
+    <td style="padding:${pad};text-align:center;font-size:${fs};font-weight:800;color:#DC2626">${totNotDone}</td>
+    <td style="padding:${pad};text-align:center;font-size:${fs};font-weight:900;color:${totPctColor}">${totPct}%</td>
+    <td style="padding:${pad};text-align:center"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;color:${totalBadge.color};background:${totalBadge.bg}">${totalBadge.label}</span></td>
+    <td></td>
+  </tr>`;
+
+  // KPI strip
+  const kpiBar = `
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      ${[
+        { v: rows.length,  l: 'Campaign',    c: '#3B5CE5', bg: '#EEF2FF' },
+        { v: totAlokasi,   l: 'Alokasi',     c: '#475569', bg: '#F8FAFC' },
+        { v: totDone,      l: 'Sudah Kirim', c: '#16A34A', bg: '#DCFCE7' },
+        { v: totNotDone,   l: 'Belum Kirim', c: '#DC2626', bg: '#FEE2E2' },
+        { v: totPct + '%', l: 'Overall',     c: totPctColor, bg: '#F8FAFC' },
+      ].map(k => `<div style="flex:1;background:${k.bg};border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:18px;font-weight:900;color:${k.c};line-height:1">${k.v}</div>
+        <div style="font-size:9px;color:#64748B;font-weight:600;margin-top:2px">${k.l}</div>
+      </div>`).join('')}
+    </div>`;
+
   const now = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  return `<div class="wr-slide" style="width:1120px;height:630px;background:#FAFBFF;font-family:'Inter',sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative;box-sizing:border-box">
-    <div style="position:relative;z-index:1;padding:32px 44px 20px;flex:1;display:flex;flex-direction:column;box-sizing:border-box">
+  return `<div class="wr-slide" style="width:1120px;height:630px;background:#FAFBFF;font-family:'Inter',sans-serif;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box">
+    <div style="padding:24px 40px 16px;flex:1;display:flex;flex-direction:column;box-sizing:border-box">
 
-      <!-- Title bar -->
-      <div style="text-align:center;margin-bottom:22px">
-        <h1 style="font-size:26px;font-weight:900;color:#1E293B;margin:0;letter-spacing:-0.5px;line-height:1.2">
+      <!-- Title -->
+      <div style="text-align:center;margin-bottom:14px">
+        <h1 style="font-size:22px;font-weight:900;color:#1E293B;margin:0;letter-spacing:-.5px">
           Report Dokumentasi Visibility
-          <span style="color:#3B5CE5"> &mdash; ${monthLabel}</span>
+          <span style="color:#3B5CE5"> &mdash; ${title}</span>
         </h1>
       </div>
 
+      <!-- KPI bar -->
+      ${kpiBar}
+
       <!-- Table -->
-      <div style="flex:1;overflow:hidden;border-radius:10px;box-shadow:0 2px 12px rgba(59,92,229,0.10);border:1px solid #E2E8F0">
+      <div style="flex:1;overflow:hidden;border-radius:10px;box-shadow:0 2px 14px rgba(59,92,229,.12);border:1px solid #DDE3F5">
         <table style="width:100%;border-collapse:collapse">
           <thead>
-            <tr style="background:linear-gradient(90deg,#3B5CE5 0%,#5B21B6 100%)">
-              <th style="padding:10px 8px;color:#fff;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.5px;width:46px">No</th>
-              <th style="padding:10px 12px;color:#fff;font-size:11px;font-weight:700;text-align:left;letter-spacing:0.5px">VISIBILITY</th>
-              <th style="padding:10px 12px;color:#fff;font-size:11px;font-weight:700;text-align:left;letter-spacing:0.5px;width:160px">MATERI</th>
-              <th style="padding:10px 8px;color:#fff;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.5px;width:72px">ALOKASI</th>
-              <th style="padding:10px 8px;color:#fff;font-size:10px;font-weight:700;text-align:center;letter-spacing:0.3px;width:80px">KIRIM DOK</th>
-              <th style="padding:10px 8px;color:#fff;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.5px;width:58px">%</th>
-              <th style="padding:10px 12px;color:#fff;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.5px;width:130px">PERIODE</th>
+            <tr style="background:linear-gradient(90deg,#3B5CE5,#5B21B6)">
+              <th style="padding:9px 7px;color:#fff;font-size:10px;font-weight:700;text-align:center;width:40px">No</th>
+              <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:700;text-align:left">VISIBILITY</th>
+              <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:700;text-align:left;width:150px">MATERI</th>
+              <th style="padding:9px 7px;color:#fff;font-size:10px;font-weight:700;text-align:center;width:65px">ALOKASI</th>
+              <th style="padding:9px 7px;color:#86EFAC;font-size:10px;font-weight:700;text-align:center;width:60px">DONE</th>
+              <th style="padding:9px 7px;color:#FCA5A5;font-size:10px;font-weight:700;text-align:center;width:60px">BELUM</th>
+              <th style="padding:9px 7px;color:#fff;font-size:10px;font-weight:700;text-align:center;width:52px">%</th>
+              <th style="padding:9px 7px;color:#fff;font-size:10px;font-weight:700;text-align:center;width:110px">STATUS</th>
+              <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:700;text-align:center;width:110px">PERIODE</th>
             </tr>
           </thead>
-          <tbody>${rowsHtml}</tbody>
+          <tbody>${rowsHtml}${totalRow}</tbody>
         </table>
       </div>
 
       <!-- Footer -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-        <div style="font-size:9.5px;color:#94A3B8;font-weight:600;letter-spacing:.3px">ERA-VIS AI v2.0 — Erafone Visibility Intelligence</div>
-        <div style="font-size:9.5px;color:#94A3B8">Generated ${now}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px">
+        <div style="font-size:9px;color:#94A3B8;font-weight:600">ERA-VIS AI v2.0 — Erafone Visibility Intelligence</div>
+        <div style="font-size:9px;color:#94A3B8">Generated ${now}</div>
       </div>
     </div>
   </div>`;
 }
 
 
-// ── SCALE SLIDE ───────────────────────────────────────────────────
+// ── SCALE ─────────────────────────────────────────────────────────
 
 function _scaleSrSlide() {
-  const vp  = document.getElementById('sr-slide-viewport');
-  const sc  = document.getElementById('sr-slide-scaler');
+  const vp = document.getElementById('sr-slide-viewport');
+  const sc = document.getElementById('sr-slide-scaler');
   if (!vp || !sc) return;
-  const w   = vp.offsetWidth || 800;
-  const s   = Math.min(1, (w - 24) / 1120);
+  const s = Math.min(1, (vp.offsetWidth - 24) / 1120);
   sc.style.transform       = `scale(${s})`;
   sc.style.transformOrigin = 'top center';
   sc.style.width           = '1120px';
@@ -364,50 +452,25 @@ function _srShowPreview(show) {
 async function exportSrPdf() {
   const scaler  = document.getElementById('sr-slide-scaler');
   const slideEl = scaler ? scaler.querySelector('.wr-slide') : null;
-
-  if (!slideEl) {
-    toast('Generate laporan dulu sebelum export PDF.', 'warn');
-    return;
-  }
+  if (!slideEl) { toast('Generate laporan dulu sebelum export PDF.', 'warn'); return; }
   if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
-    toast('Library belum dimuat. Refresh halaman dan coba lagi.', 'error');
-    return;
+    toast('Library belum dimuat. Refresh halaman.', 'error'); return;
   }
-
   toast('Memproses PDF...', 'info');
-
   const vp = document.getElementById('sr-slide-viewport');
-  const prevT = scaler.style.transform;
-  const prevH = vp ? vp.style.height : '';
-
-  scaler.style.transform       = 'scale(1)';
+  const prevT = scaler.style.transform, prevH = vp ? vp.style.height : '';
+  scaler.style.transform = 'scale(1)';
   scaler.style.transformOrigin = 'top left';
   if (vp) vp.style.height = 'auto';
-
   await new Promise(r => setTimeout(r, 200));
-
   try {
-    const canvas = await html2canvas(slideEl, {
-      scale          : 2,
-      width          : 1120,
-      height         : 630,
-      useCORS        : true,
-      allowTaint     : true,
-      backgroundColor: '#FAFBFF',
-      logging        : false,
-      imageTimeout   : 8000,
-    });
-
+    const canvas = await html2canvas(slideEl, { scale: 2, width: 1120, height: 630, useCORS: true, allowTaint: true, backgroundColor: '#FAFBFF', logging: false });
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'px', format: [1120, 630], hotfixes: ['px_scaling'], compress: true });
     doc.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 1120, 630);
-
-    const fn = `ERA-VIS_SummaryReport_${_safeFilename(srState.monthLabel)}_${_dateTag()}.pdf`;
-    doc.save(fn);
+    doc.save(`ERA-VIS_SummaryReport_${_safeFilename(srState.monthLabel)}_${_dateTag()}.pdf`);
     toast('PDF berhasil diunduh!', 'success');
-
   } catch (err) {
-    console.error('[SR] PDF error:', err);
     toast('Export PDF gagal: ' + err.message, 'error');
   } finally {
     scaler.style.transform = prevT;
@@ -422,46 +485,20 @@ async function exportSrPdf() {
 async function exportSrPng() {
   const scaler  = document.getElementById('sr-slide-scaler');
   const slideEl = scaler ? scaler.querySelector('.wr-slide') : null;
-
-  if (!slideEl) {
-    toast('Generate laporan dulu sebelum screenshot.', 'warn');
-    return;
-  }
-  if (typeof html2canvas === 'undefined') {
-    toast('Library html2canvas belum dimuat.', 'error');
-    return;
-  }
-
+  if (!slideEl) { toast('Generate laporan dulu sebelum screenshot.', 'warn'); return; }
+  if (typeof html2canvas === 'undefined') { toast('html2canvas belum dimuat.', 'error'); return; }
   toast('Memproses screenshot...', 'info');
-
   const vp = document.getElementById('sr-slide-viewport');
-  const prevT = scaler.style.transform;
-  const prevH = vp ? vp.style.height : '';
-
-  scaler.style.transform       = 'scale(1)';
+  const prevT = scaler.style.transform, prevH = vp ? vp.style.height : '';
+  scaler.style.transform = 'scale(1)';
   scaler.style.transformOrigin = 'top left';
   if (vp) vp.style.height = 'auto';
-
   await new Promise(r => setTimeout(r, 200));
-
   try {
-    const canvas = await html2canvas(slideEl, {
-      scale          : 2,
-      width          : 1120,
-      height         : 630,
-      useCORS        : true,
-      allowTaint     : true,
-      backgroundColor: '#FAFBFF',
-      logging        : false,
-      imageTimeout   : 8000,
-    });
-
-    const fn = `ERA-VIS_SummaryReport_${_safeFilename(srState.monthLabel)}_${_dateTag()}.png`;
-    _triggerDownload(canvas.toDataURL('image/png'), fn);
+    const canvas = await html2canvas(slideEl, { scale: 2, width: 1120, height: 630, useCORS: true, allowTaint: true, backgroundColor: '#FAFBFF', logging: false });
+    _triggerDownload(canvas.toDataURL('image/png'), `ERA-VIS_SummaryReport_${_safeFilename(srState.monthLabel)}_${_dateTag()}.png`);
     toast('Screenshot berhasil diunduh!', 'success');
-
   } catch (err) {
-    console.error('[SR] PNG error:', err);
     toast('Screenshot gagal: ' + err.message, 'error');
   } finally {
     scaler.style.transform = prevT;
