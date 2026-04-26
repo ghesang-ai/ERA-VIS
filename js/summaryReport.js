@@ -80,17 +80,6 @@ function _srBadge(pct) {
   return               { label: '🔴 KRITIS',     color: '#991B1B', bg: '#FEE2E2' };
 }
 
-// Ambil stores dengan status REAL dari cache WR, fallback ke localStores
-function _getStores(c) {
-  // Prioritas 1: WR data cache — berisi status real hasil merge Sheet/Excel
-  if (window._eravisWrDataCache && window._eravisWrDataCache[c.id]) {
-    return window._eravisWrDataCache[c.id];
-  }
-  // Prioritas 2: localStores dari campaign object
-  return Array.isArray(c.localStores) ? c.localStores : [];
-}
-
-
 // ── GENERATE ──────────────────────────────────────────────────────
 
 async function generateSummaryReport() {
@@ -110,62 +99,49 @@ async function generateSummaryReport() {
   _srShowPreview(false);
 
   const genBtn = document.getElementById('sr-generate-btn');
-  if (genBtn) { genBtn.disabled = true; genBtn.textContent = '⏳ Generating...'; }
+  if (genBtn) { genBtn.disabled = true; genBtn.textContent = '⏳ Fetching data...'; }
 
   try {
-    await new Promise(r => setTimeout(r, 80));
+    // ── Gunakan _fetchWrData dari weeklyReport.js ──────────────────
+    // Fungsi ini sudah handle: _eravisWrDataCache → currentMasterData → fetch Sheet/Excel
+    // Sehingga status DONE/NOT_DONE akurat seperti yang tampil di Data Toko
+    const wrData = await _fetchWrData({
+      period: monthKey,
+      region: regionKey,   // filter region di level store
+      status: 'ALL',       // ambil semua campaign (done maupun belum)
+    });
 
+    // ── Filter by bulan berdasarkan deadline campaign ──────────────
     const allCampaigns = typeof campaigns !== 'undefined' ? campaigns : [];
+    const campaignMeta = {};
+    allCampaigns.forEach(c => { campaignMeta[c.id] = c; });
 
-    // Filter campaign berdasarkan deadline bulan
-    let filtered = allCampaigns.filter(c => _campaignInMonth(c, info.num, info.year));
-    if (filtered.length === 0 && monthKey === 'current') {
-      filtered = allCampaigns.filter(c => c.status === 'active');
-    }
+    // Set campaign ID yang aktif di bulan ini
+    const inMonth = new Set(
+      allCampaigns
+        .filter(c => _campaignInMonth(c, info.num, info.year))
+        .map(c => c.id)
+    );
+    // Fallback: jika tidak ada yang match deadline, tampilkan semua active
+    const useAll = inMonth.size === 0 && monthKey === 'current';
+    if (useAll) allCampaigns.filter(c => c.status === 'active').forEach(c => inMonth.add(c.id));
 
-    // Build rows dengan region filter di level store
+    // ── Build rows dari wrData.campaigns ──────────────────────────
     let rowNum = 1;
     const rows = [];
 
-    for (const c of filtered) {
-      const allStores = _getStores(c);
-
-      let scopedStores;
-      if (regionKey !== 'ALL') {
-        scopedStores = allStores.filter(s =>
-          (s.region || '').toUpperCase().trim() === regionKey.toUpperCase().trim()
-        );
-        if (scopedStores.length === 0) continue;
-      } else {
-        scopedStores = allStores;
-      }
-
-      let alokasi, done, notDone, pct;
-
-      if (scopedStores.length > 0) {
-        alokasi = scopedStores.length;
-        done    = scopedStores.filter(s => (s.status || '').toUpperCase() === 'DONE').length;
-        notDone = alokasi - done;
-        pct     = Math.round(done / alokasi * 100);
-      } else if (regionKey === 'ALL' && typeof dataCache !== 'undefined' && dataCache[c.id]) {
-        // Fallback ke dataCache hanya jika ALL region dan tidak ada store data
-        alokasi = dataCache[c.id].totalStores || 0;
-        done    = dataCache[c.id].doneCount   || 0;
-        notDone = alokasi - done;
-        pct     = dataCache[c.id].rate        || 0;
-      } else {
-        alokasi = 0; done = 0; notDone = 0; pct = 0;
-      }
-
+    for (const wc of wrData.campaigns) {
+      if (!inMonth.has(wc.id)) continue;
+      const meta = campaignMeta[wc.id] || {};
       rows.push({
         no        : rowNum++,
-        visibility: c.name || '—',
-        materi    : _deriveMateri(c),
-        alokasi,
-        done,
-        notDone,
-        pct,
-        periode   : _srFmtPeriode(c),
+        visibility: wc.campaign_name || meta.name || '—',
+        materi    : _deriveMateri(meta),
+        alokasi   : wc.total_stores,
+        done      : wc.stores_done,
+        notDone   : wc.stores_not_done,
+        pct       : wc.completion_rate,
+        periode   : _srFmtPeriode(meta),
       });
     }
 
