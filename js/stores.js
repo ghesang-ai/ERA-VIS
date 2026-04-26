@@ -163,14 +163,86 @@ function renderParticipationSummary(campaignStores, masterStores) {
 // (dipanggil dari index.html setelah DOM ready via initStoreListeners)
 function initStoreListeners() {
   document.getElementById('store-region-filter')
-    .addEventListener('change', () => { updateStoreCityFilter(); renderStoreTable(); });
+    .addEventListener('change', () => { updateStoreCityFilter(); renderStoreTable(); _updateCopyBtn(); });
 
-  ['store-status-filter', 'store-city-filter'].forEach(id =>
+  document.getElementById('store-status-filter')
+    .addEventListener('change', () => { renderStoreTable(); _updateCopyBtn(); });
+
+  ['store-city-filter'].forEach(id =>
     document.getElementById(id).addEventListener('change', renderStoreTable)
   );
 
   document.getElementById('store-search')
     .addEventListener('input', renderStoreTable);
+}
+
+function _updateCopyBtn() {
+  const status = document.getElementById('store-status-filter').value;
+  const btn = document.getElementById('btn-copy-text');
+  if (btn) btn.style.display = status === 'NOT DONE' ? '' : 'none';
+}
+
+
+// ── COPY TO TEXT ───────────────────────────────────────────────────
+function copyStoresToText() {
+  const region = document.getElementById('store-region-filter').value;
+  const status = document.getElementById('store-status-filter').value;
+  const city   = document.getElementById('store-city-filter').value;
+  const search = document.getElementById('store-search').value.toLowerCase();
+
+  let stores = getDisplayStores();
+  if (region) stores = stores.filter(s => s.region === region);
+  if (status) stores = stores.filter(s => s.status === status);
+  if (city)   stores = stores.filter(s => s.city === city);
+  if (search) stores = stores.filter(s =>
+    s.plantCode.toLowerCase().includes(search) ||
+    s.plantDesc.toLowerCase().includes(search) ||
+    s.city.toLowerCase().includes(search)
+  );
+
+  if (!stores.length) { toast('Tidak ada data NOT DONE', 'error'); return; }
+
+  // Group by city
+  const grouped = {};
+  stores.forEach(s => {
+    const c = (s.city || 'LAINNYA').toUpperCase();
+    if (!grouped[c]) grouped[c] = [];
+    grouped[c].push(s.plantDesc || s.plantCode);
+  });
+
+  const lines = [];
+  Object.keys(grouped).sort().forEach(cityName => {
+    lines.push(`AREA ${cityName} :`);
+    lines.push('');
+    grouped[cityName].forEach(name => lines.push(`${name}❌`));
+    lines.push('');
+  });
+
+  const text = lines.join('\n').trim();
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => toast(`${stores.length} toko NOT DONE disalin ke clipboard!`),
+      () => _fallbackCopyStoreText(text)
+    );
+  } else {
+    _fallbackCopyStoreText(text);
+  }
+}
+
+function _fallbackCopyStoreText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    toast('Disalin ke clipboard!');
+  } catch (e) {
+    toast('Gagal copy: ' + e.message, 'error');
+  }
+  document.body.removeChild(ta);
 }
 
 

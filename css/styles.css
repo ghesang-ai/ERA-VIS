@@ -229,6 +229,8 @@ a:hover { text-decoration: underline; }
 .btn-danger:hover   { background: #B91C1C; }
 .btn-teal     { background: var(--teal);   color: #fff; border-color: var(--teal);   }
 .btn-teal:hover     { background: #077A5C; }
+.btn-copy-text      { background: #7C3AED; color: #fff; border-color: #7C3AED; }
+.btn-copy-text:hover{ background: #5B21B6; }
 .btn-purple   { background: var(--purple); color: #fff; border-color: var(--purple); }
 .btn-purple:hover   { background: #6D28D9; }
 .btn-orange   { background: var(--orange); color: #fff; border-color: var(--orange); }
