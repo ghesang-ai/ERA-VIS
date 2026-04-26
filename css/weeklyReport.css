@@ -342,3 +342,144 @@
     break-after: avoid;
   }
 }
+
+
+/* ================================================================
+   SUMMARY WEEKLY REPORT — styles
+   ================================================================ */
+
+/* ── TABLE WRAPPER ────────────────────────────────────────────── */
+.sr-table-header {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.sr-table-title {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -.3px;
+}
+
+.sr-table-scroll {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(59,92,229,.08);
+}
+
+.sr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 680px;
+}
+
+/* ── HEADER ROW ───────────────────────────────────────────────── */
+.sr-thead-row {
+  background: linear-gradient(90deg, #3B5CE5 0%, #5B21B6 100%);
+}
+
+.sr-th {
+  padding: 11px 14px;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: .6px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sr-th-no,
+.sr-th-num {
+  text-align: center;
+}
+
+/* ── DATA ROWS ────────────────────────────────────────────────── */
+.sr-row {
+  transition: background .15s;
+}
+
+.sr-row:nth-child(odd)  { background: #ffffff; }
+.sr-row:nth-child(even) { background: #F0F3FA; }
+.sr-row:hover           { background: #EBF0FF; }
+.sr-row-empty           { background: #F8F9FC; }
+
+.sr-td {
+  padding: 9px 14px;
+  color: var(--ink);
+  font-size: 13px;
+  border-bottom: 1px solid #E8ECF4;
+  vertical-align: middle;
+}
+
+.sr-td-no {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  width: 44px;
+}
+
+.sr-td-visibility {
+  font-weight: 500;
+}
+
+.sr-td-materi {
+  color: #475569;
+  font-size: 12.5px;
+}
+
+.sr-td-num {
+  text-align: center;
+  width: 80px;
+}
+
+.sr-td-pct {
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+  width: 70px;
+}
+
+.sr-td-periode {
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ── SLIDE VIEWPORT ───────────────────────────────────────────── */
+#sr-slide-viewport {
+  overflow: hidden;
+  background: #F1F3F9;
+  border-radius: var(--r-sm);
+  position: relative;
+}
+
+#sr-slide-scaler {
+  display: block;
+  transform-origin: top center;
+}
+
+/* ── LOADING / EMPTY ──────────────────────────────────────────── */
+#sr-loading-state {
+  text-align: center;
+  padding: 40px;
+}
+
+#sr-loading-state .spinner {
+  margin: 0 auto 12px;
+}
+
+/* ── RESPONSIVE ───────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .sr-table-title {
+    font-size: 16px;
+  }
+  .sr-th, .sr-td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
