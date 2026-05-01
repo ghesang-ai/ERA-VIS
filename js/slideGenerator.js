@@ -281,7 +281,7 @@ function generateCampaignSlide(campaign, allStoresNotDone, storePageIdx, slideNu
   const storeListHtml = Object.keys(byArea).sort().map(area => {
     const rows = byArea[area].map(s => `
       <div style="display:flex;align-items:center;gap:4px;padding:2px 0;border-bottom:1px solid #F1F5F9">
-        <span style="color:#DC2626;font-size:9px;flex-shrink:0;font-weight:900">✕</span>
+        <span style="color:#DC2626;font-size:11px;flex-shrink:0;font-weight:900;line-height:1">✕</span>
         <span style="font-size:9.5px;font-weight:600;color:#0F172A;flex:1;line-height:1.25;
                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.store_name}</span>
         <span style="font-size:7.5px;color:#94A3B8;font-family:ui-monospace,monospace;
