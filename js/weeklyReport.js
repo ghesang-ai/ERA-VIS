@@ -347,34 +347,39 @@ async function generateWeeklyReport() {
 function _buildSlides(data, filters) {
   const slides = [];
 
-  // Hitung total slides dulu
-  const totalPages = 1                              // overview
-    + data.campaigns.length                        // 1 per campaign
-    + 1;                                           // summary/penutup
+  // Hitung total slides: tiap campaign bisa punya >1 slide jika toko NOT DONE banyak
+  const campaignStoreCounts = data.campaigns.map(c =>
+    data.stores.filter(s => s.campaign_id === c.id).length
+  );
+  const totalCampaignSlides = campaignStoreCounts.reduce((sum, n) =>
+    sum + Math.max(1, Math.ceil(n / CAMPAIGN_STORES_PER_PAGE)), 0
+  );
+  const totalPages = 1 + totalCampaignSlides + 1; // overview + campaigns + summary
 
   // Slide 1: Overview
   slides.push({
     index: 0,
     title: 'Overview',
     type : 'overview',
-    html : generateOverviewSlide(
-      data.overview,
-      data.regions,
-      filters.period,
-      1,
-      totalPages
-    ),
+    html : generateOverviewSlide(data.overview, data.regions, filters.period, 1, totalPages),
   });
 
-  // Slide 2-N: Per campaign
-  data.campaigns.forEach((campaign, i) => {
+  // Slide 2-N: Per campaign, otomatis multi-slide jika NOT DONE > CAMPAIGN_STORES_PER_PAGE
+  data.campaigns.forEach(campaign => {
     const storesForCampaign = data.stores.filter(s => s.campaign_id === campaign.id);
-    slides.push({
-      index: i + 1,
-      title: campaign.campaign_name,
-      type : 'campaign',
-      html : generateCampaignSlide(campaign, storesForCampaign, i + 2, totalPages),
-    });
+    const storePages = Math.max(1, Math.ceil(storesForCampaign.length / CAMPAIGN_STORES_PER_PAGE));
+
+    for (let p = 0; p < storePages; p++) {
+      const slideNum = slides.length + 1;
+      slides.push({
+        index: slides.length,
+        title: storePages > 1
+          ? `${campaign.campaign_name} (${p + 1}/${storePages})`
+          : campaign.campaign_name,
+        type : 'campaign',
+        html : generateCampaignSlide(campaign, storesForCampaign, p, slideNum, totalPages),
+      });
+    }
   });
 
   // Slide terakhir: Summary

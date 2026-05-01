@@ -240,141 +240,150 @@ function generateOverviewSlide(stats, regions, period, pageNum, totalPages) {
  * @param {number} totalPages
  * @returns {string} HTML string
  */
-function generateCampaignSlide(campaign, storesNotDone, pageNum, totalPages) {
-  const genDate      = wrFmtDate(new Date().toISOString());
-  const periodStr    = wrFmtPeriod(campaign.period_start, campaign.period_end);
-  const meta         = wrPriorityMeta(campaign.completion_rate);
-  const rate         = campaign.completion_rate;
-  const barColor     = rate >= 70 ? '#0B8F6C' : rate >= 40 ? '#D97706' : '#DC2626';
+// Jumlah toko NOT DONE per slide (3 kolom × 12 baris = 36, muat dalam 630px)
+const CAMPAIGN_STORES_PER_PAGE = 36;
 
-  // Kelompokkan toko per area
+/**
+ * Generate slide campaign — support pagination otomatis untuk campaign dengan
+ * banyak toko NOT DONE. Setiap halaman menampilkan CAMPAIGN_STORES_PER_PAGE
+ * toko dalam layout 3 kolom sehingga semua toko muncul di screenshot/PDF.
+ *
+ * @param {Object} campaign         - campaign object
+ * @param {Array}  allStoresNotDone - SEMUA store NOT DONE untuk campaign ini
+ * @param {number} storePageIdx     - halaman toko (0-based)
+ * @param {number} slideNum         - nomor slide global (1-based)
+ * @param {number} totalSlides      - total slide keseluruhan
+ * @returns {string} HTML string
+ */
+function generateCampaignSlide(campaign, allStoresNotDone, storePageIdx, slideNum, totalSlides) {
+  const genDate     = wrFmtDate(new Date().toISOString());
+  const periodStr   = wrFmtPeriod(campaign.period_start, campaign.period_end);
+  const meta        = wrPriorityMeta(campaign.completion_rate);
+  const rate        = campaign.completion_rate;
+  const barColor    = rate >= 70 ? '#0B8F6C' : rate >= 40 ? '#D97706' : '#DC2626';
+
+  const storeTotalPages = Math.max(1, Math.ceil(allStoresNotDone.length / CAMPAIGN_STORES_PER_PAGE));
+  const isFirstPage     = storePageIdx === 0;
+  const isLastPage      = storePageIdx === storeTotalPages - 1;
+  const pageStores      = allStoresNotDone.slice(
+    storePageIdx * CAMPAIGN_STORES_PER_PAGE,
+    (storePageIdx + 1) * CAMPAIGN_STORES_PER_PAGE
+  );
+
+  // Kelompokkan toko halaman ini per area
   const byArea = {};
-  storesNotDone.forEach(s => {
+  pageStores.forEach(s => {
     const area = s.area || s.city || 'LAINNYA';
     if (!byArea[area]) byArea[area] = [];
     byArea[area].push(s);
   });
 
-  // Batas tampilan: tampilkan SEMUA jika ≤ 20, potong di 20 jika lebih
-  // (slide 2-kolom cukup untuk ~20 toko dengan font kompak)
-  const totalNd        = storesNotDone.length;
-  const MAX_VISIBLE_TOTAL = Math.min(totalNd, 20);
+  const storeListHtml = Object.keys(byArea).sort().map(area => {
+    const rows = byArea[area].map(s => `
+      <div style="display:flex;align-items:center;gap:4px;padding:2px 0;border-bottom:1px solid #F1F5F9">
+        <span style="color:#DC2626;font-size:9px;flex-shrink:0;font-weight:900">✕</span>
+        <span style="font-size:9.5px;font-weight:600;color:#0F172A;flex:1;line-height:1.25;
+                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.store_name}</span>
+        <span style="font-size:7.5px;color:#94A3B8;font-family:ui-monospace,monospace;
+                     white-space:nowrap;flex-shrink:0">${s.city || ''}</span>
+      </div>`).join('');
 
-  // Font & padding menyesuaikan jumlah toko agar muat di slide
-  const rowFontSize  = totalNd > 15 ? '10px'  : '11px';
-  const rowPadding   = totalNd > 15 ? '3px 0' : '5px 0';
-  const headFontSize = totalNd > 15 ? '8.5px' : '9.5px';
+    return `
+      <div style="break-inside:avoid;margin-bottom:3px">
+        <div style="font-size:7.5px;font-weight:800;color:#64748B;text-transform:uppercase;
+                    letter-spacing:.8px;font-family:ui-monospace,monospace;
+                    padding:3px 0 2px;border-bottom:1.5px solid #CBD5E1;margin-bottom:1px">
+          📍 ${area}
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
 
-  let visibleCount = 0;
-  let hiddenCount  = 0;
-  const areaHtmlParts = [];
-
-  const areaKeys = Object.keys(byArea).sort();
-  for (const area of areaKeys) {
-    const stores = byArea[area];
-    const areaStores = [];
-    for (const s of stores) {
-      if (visibleCount < MAX_VISIBLE_TOTAL) {
-        areaStores.push(s);
-        visibleCount++;
-      } else {
-        hiddenCount++;
-      }
-    }
-    if (areaStores.length === 0) {
-      hiddenCount += stores.length;
-      continue;
-    }
-    const storeRows = areaStores.map(s => `
-      <div style="display:flex;align-items:center;gap:6px;padding:${rowPadding};border-bottom:1px solid #F8FAFC">
-        <span style="color:#DC2626;font-size:11px;flex-shrink:0">❌</span>
-        <span style="font-size:${rowFontSize};font-weight:600;color:#0F172A;flex:1;letter-spacing:-.1px;line-height:1.3">${s.store_name}</span>
-        <span style="font-size:9px;color:#64748B;font-family:ui-monospace,monospace;text-align:right;white-space:nowrap">${s.city}</span>
+  // ── Blok atas: completion status (halaman pertama) atau ring-kasan compact (lanjutan)
+  const topBlock = isFirstPage ? `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:11px;font-weight:700;color:#334155;text-transform:uppercase;
+                     letter-spacing:.5px;font-family:ui-monospace,monospace">Completion Status</span>
+        <span style="font-size:20px;font-weight:900;color:${barColor};font-family:ui-monospace,monospace">${rate}%</span>
       </div>
-    `).join('');
-
-    areaHtmlParts.push(`
-      <div style="font-size:${headFontSize};font-weight:800;color:#64748B;text-transform:uppercase;
-                  letter-spacing:1px;font-family:ui-monospace,monospace;
-                  padding:${totalNd > 15 ? '6px 0 3px' : '8px 0 4px'};
-                  border-bottom:1.5px solid #E2E8F0;margin-top:4px">
-        📍 ${area}
+      ${wrProgressBar(rate, barColor)}
+      <div style="display:flex;gap:10px;margin-top:7px">
+        <div style="background:#E6F7F2;border:1px solid #6EE7B7;border-radius:7px;padding:6px 12px;
+                    display:flex;align-items:center;gap:5px">
+          <span style="font-size:12px">✅</span>
+          <div>
+            <div style="font-size:16px;font-weight:900;color:#0B8F6C;line-height:1;font-family:ui-monospace,monospace">${campaign.stores_done}</div>
+            <div style="font-size:8px;color:#0B8F6C;font-weight:700;text-transform:uppercase;letter-spacing:.5px">DONE</div>
+          </div>
+        </div>
+        <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:7px;padding:6px 12px;
+                    display:flex;align-items:center;gap:5px">
+          <span style="font-size:12px">❌</span>
+          <div>
+            <div style="font-size:16px;font-weight:900;color:#DC2626;line-height:1;font-family:ui-monospace,monospace">${campaign.stores_not_done}</div>
+            <div style="font-size:8px;color:#DC2626;font-weight:700;text-transform:uppercase;letter-spacing:.5px">NOT DONE</div>
+          </div>
+        </div>
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:7px;padding:6px 12px;
+                    display:flex;align-items:center;gap:5px">
+          <div>
+            <div style="font-size:16px;font-weight:900;color:#334155;line-height:1;font-family:ui-monospace,monospace">${campaign.total_stores}</div>
+            <div style="font-size:8px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:.5px">TOTAL TOKO</div>
+          </div>
+        </div>
       </div>
-      ${storeRows}
-    `);
-  }
+    </div>` : `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;padding:5px 10px;
+                background:#FEF2F2;border-radius:6px;border-left:3px solid #DC2626">
+      <span style="font-size:11px;font-weight:700;color:#DC2626;font-family:ui-monospace,monospace">${campaign.stores_not_done} NOT DONE</span>
+      <span style="font-size:9px;color:#94A3B8">·</span>
+      <span style="font-size:10px;color:#64748B">${rate}% selesai · ${campaign.total_stores} toko total</span>
+    </div>`;
 
-  const hiddenNote = hiddenCount > 0
-    ? `<div style="font-size:11px;color:#64748B;font-style:italic;margin-top:8px;padding:6px 10px;
-                   background:#F8FAFC;border-radius:6px;border-left:3px solid #CBD5E1">
-         ... dan <strong>${hiddenCount} toko lainnya</strong> belum submit
-       </div>`
-    : '';
+  // Label range toko di halaman ini
+  const startIdx  = storePageIdx * CAMPAIGN_STORES_PER_PAGE + 1;
+  const endIdx    = Math.min((storePageIdx + 1) * CAMPAIGN_STORES_PER_PAGE, allStoresNotDone.length);
+  const rangeLabel = storeTotalPages > 1
+    ? `Toko ${startIdx}–${endIdx} dari ${allStoresNotDone.length}  ·  Halaman ${storePageIdx + 1} / ${storeTotalPages}`
+    : `${allStoresNotDone.length} toko belum submit`;
 
-  const actionNote = campaign.stores_not_done > 0
-    ? `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:10px 14px;
-                   margin-top:12px;display:flex;align-items:center;gap:8px">
-         <span style="font-size:14px">⚠️</span>
-         <span style="font-size:11.5px;color:#92400E;font-weight:600">
+  // Action note hanya di halaman terakhir
+  const actionNote = isLastPage && campaign.stores_not_done > 0
+    ? `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;padding:7px 12px;
+                   margin-top:8px;display:flex;align-items:center;gap:8px;flex-shrink:0">
+         <span style="font-size:13px">⚠️</span>
+         <span style="font-size:11px;color:#92400E;font-weight:600">
            ACTION NEEDED: Follow up <strong>${campaign.stores_not_done} toko</strong> via Auto Reminder
          </span>
        </div>`
     : '';
 
-  return `<div class="wr-slide" data-slide-index="${pageNum - 1}">
-    ${wrSlideHeader(
-      campaign.campaign_name,
-      'Periode Campaign: ' + periodStr,
-      meta.label,
-      meta.color
-    )}
+  const slideTitle = storeTotalPages > 1
+    ? `${campaign.campaign_name} — Hal. ${storePageIdx + 1}/${storeTotalPages}`
+    : campaign.campaign_name;
+
+  return `<div class="wr-slide" data-slide-index="${slideNum - 1}">
+    ${wrSlideHeader(slideTitle, 'Periode Campaign: ' + periodStr, meta.label, meta.color)}
     <div class="wr-slide-body">
 
-      <!-- Completion header -->
-      <div style="margin-bottom:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;
-                       letter-spacing:.5px;font-family:ui-monospace,monospace">Completion Status</span>
-          <span style="font-size:22px;font-weight:900;color:${barColor};font-family:ui-monospace,monospace">${rate}%</span>
-        </div>
-        ${wrProgressBar(rate, barColor)}
-        <div style="display:flex;gap:16px;margin-top:8px">
-          <div style="background:#E6F7F2;border:1px solid #6EE7B7;border-radius:8px;padding:8px 14px;
-                      display:flex;align-items:center;gap:6px">
-            <span style="font-size:13px">✅</span>
-            <div>
-              <div style="font-size:18px;font-weight:900;color:#0B8F6C;line-height:1;font-family:ui-monospace,monospace">${campaign.stores_done}</div>
-              <div style="font-size:9px;color:#0B8F6C;font-weight:700;text-transform:uppercase;letter-spacing:.5px">DONE</div>
-            </div>
-          </div>
-          <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:8px 14px;
-                      display:flex;align-items:center;gap:6px">
-            <span style="font-size:13px">❌</span>
-            <div>
-              <div style="font-size:18px;font-weight:900;color:#DC2626;line-height:1;font-family:ui-monospace,monospace">${campaign.stores_not_done}</div>
-              <div style="font-size:9px;color:#DC2626;font-weight:700;text-transform:uppercase;letter-spacing:.5px">NOT DONE</div>
-            </div>
-          </div>
-          <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 14px;
-                      display:flex;align-items:center;gap:6px">
-            <div>
-              <div style="font-size:18px;font-weight:900;color:#334155;line-height:1;font-family:ui-monospace,monospace">${campaign.total_stores}</div>
-              <div style="font-size:9px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:.5px">TOTAL TOKO</div>
-            </div>
-          </div>
-        </div>
+      ${topBlock}
+
+      <!-- Header section toko -->
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:11px;font-weight:700;color:#334155;text-transform:uppercase;
+                     letter-spacing:.5px;font-family:ui-monospace,monospace">🚫 Toko Belum Submit</span>
+        <span style="font-size:8.5px;color:#64748B;font-family:ui-monospace,monospace">${rangeLabel}</span>
       </div>
 
-      <!-- Store list by area -->
-      <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:4px;text-transform:uppercase;
-                  letter-spacing:.5px;font-family:ui-monospace,monospace">Toko Belum Submit</div>
-      <div style="columns:2;column-gap:16px;column-fill:balance">
-        ${areaHtmlParts.join('')}
+      <!-- 3-kolom store list -->
+      <div style="columns:3;column-gap:14px;column-fill:balance">
+        ${storeListHtml}
       </div>
-      ${hiddenNote}
+
       ${actionNote}
     </div>
-    ${wrSlideFooter(pageNum, totalPages, genDate)}
+    ${wrSlideFooter(slideNum, totalSlides, genDate)}
   </div>`;
 }
 
