@@ -1,0 +1,125 @@
+/* ================================================================
+   ERA-VIS AI — vmdCompliance.css
+   Visual Merchandising Compliance page
+   ================================================================ */
+
+/* ── KPI BAR ─────────────────────────────────────────────────── */
+.vmd-kpi-bar {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.vmd-kpi {
+  background: #fff;
+  border: 1px solid var(--border, #E2E8F0);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+  border-top: 3px solid #CBD5E1;
+}
+.vmd-kpi-blue  { border-top-color: #3B5CE5; }
+.vmd-kpi-prog  { border-top-color: #6366F1; }
+.vmd-kpi-green { border-top-color: #16A34A; }
+.vmd-kpi-amber { border-top-color: #D97706; }
+.vmd-kpi-red   { border-top-color: #DC2626; }
+.vmd-kpi-score { border-top-color: #0EA5A4; }
+.vmd-kpi-val {
+  font-size: 26px;
+  font-weight: 900;
+  color: #1E293B;
+  line-height: 1.05;
+}
+.vmd-kpi-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748B;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+/* ── TABLE ───────────────────────────────────────────────────── */
+.vmd-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border, #E2E8F0);
+  border-radius: 12px;
+}
+.vmd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  min-width: 720px;
+}
+.vmd-thead {
+  background: linear-gradient(90deg, #3B5CE5, #5B21B6);
+}
+.vmd-th {
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-align: center;
+  padding: 11px 8px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+.vmd-th-no    { width: 44px; }
+.vmd-th-code  { width: 84px; }
+.vmd-th-name  { text-align: left; min-width: 240px; }
+.vmd-th-prog  {
+  max-width: 130px;
+  white-space: normal;
+  line-height: 1.2;
+  vertical-align: bottom;
+}
+.vmd-th-score { width: 78px; background: rgba(255,255,255,.08); }
+.vmd-th-status{ width: 120px; }
+
+.vmd-row:nth-child(even) { background: #F8FAFF; }
+.vmd-row:hover           { background: #EEF2FF; }
+.vmd-td {
+  padding: 8px 8px;
+  border-bottom: 1px solid #EEF1F6;
+  text-align: center;
+  color: #1E293B;
+}
+.vmd-td-no   { color: #94A3B8; font-size: 11px; }
+.vmd-td-code { font-weight: 700; color: #475569; font-size: 11.5px; }
+.vmd-td-name { text-align: left; font-weight: 600; }
+.vmd-td-score{ font-weight: 900; font-size: 14px; }
+
+/* Compliance cells */
+.vmd-cell { font-weight: 800; }
+.vmd-cell-done { color: #16A34A; background: #F0FDF4; }
+.vmd-cell-miss { color: #DC2626; background: #FEF2F2; font-size: 14px; }
+.vmd-cell-na   { color: #CBD5E1; }
+
+/* Status badge */
+.vmd-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ── TOOLBAR ROW ─────────────────────────────────────────────── */
+.vmd-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.vmd-filter-row .search-wrap input {
+  min-width: 200px;
+}
+
+@media (max-width: 900px) {
+  .vmd-kpi-bar { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+  .vmd-kpi-bar { grid-template-columns: repeat(2, 1fr); }
+}

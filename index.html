@@ -8,6 +8,7 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="css/styles.css">
 <link rel="stylesheet" href="css/weeklyReport.css">
+<link rel="stylesheet" href="css/vmdCompliance.css">
 </head>
 <body>
 
@@ -31,6 +32,7 @@
       <button class="nav-btn" data-page="leaderboard"><span class="ico">&#x1F3C6;</span> Leaderboard</button>
       <button class="nav-btn" data-page="weekly-report"><span class="ico">&#x1F4CA;</span> Weekly Report<span class="badge-new">NEW</span></button>
       <button class="nav-btn" data-page="summary-report"><span class="ico">&#x1F4CB;</span> Summary Report</button>
+      <button class="nav-btn" data-page="vmd-compliance"><span class="ico">&#x2705;</span> VMD COMPLIANCE<span class="badge-new">NEW</span></button>
       <div class="nav-sec">AI Agent</div>
       <button class="nav-btn" data-page="reminder"><span class="ico">&#x1F4E8;</span> Auto Reminder<span class="nav-badge red" id="nav-badge-reminder"></span></button>
       <button class="nav-btn" data-page="logs"><span class="ico">&#x1F4DD;</span> Activity Log</button>
@@ -545,6 +547,100 @@ Link form: {link_form}</textarea></div>
 
       </div><!-- /page-summary-report -->
 
+      <!-- ===== VMD COMPLIANCE ===== -->
+      <div class="page" id="page-vmd-compliance">
+
+        <!-- Controls card -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-head">
+            <span class="card-title">&#x2705; Visual Merchandising Compliance</span>
+            <span class="badge badge-muted" style="font-size:10px">Matriks Kepatuhan Bulanan</span>
+          </div>
+          <div class="card-body">
+            <div class="wr-controls">
+              <div class="wr-control-group">
+                <label class="wr-control-label">&#x1F4C5; Pilih Bulan</label>
+                <select id="vmd-month-select" class="wr-select">
+                  <option value="current">Bulan Ini (April 2026)</option>
+                  <option value="may_2026">Mei 2026</option>
+                  <option value="jun_2026">Juni 2026</option>
+                  <option value="jul_2026">Juli 2026</option>
+                  <option value="aug_2026">Agustus 2026</option>
+                  <option value="sep_2026">September 2026</option>
+                  <option value="oct_2026">Oktober 2026</option>
+                  <option value="nov_2026">November 2026</option>
+                  <option value="dec_2026">Desember 2026</option>
+                  <option value="mar_2026">Maret 2026</option>
+                  <option value="feb_2026">Februari 2026</option>
+                  <option value="jan_2026">Januari 2026</option>
+                </select>
+              </div>
+              <div class="wr-control-group">
+                <label class="wr-control-label">&#x1F4CD; Region</label>
+                <select id="vmd-region-select" class="wr-select">
+                  <option value="ALL">Semua Region</option>
+                  <option value="REGION 1">Region 1</option>
+                  <option value="REGION 2">Region 2</option>
+                  <option value="REGION 3">Region 3</option>
+                  <option value="REGION 4">Region 4</option>
+                  <option value="REGION 5">Region 5</option>
+                  <option value="REGION 6">Region 6</option>
+                </select>
+              </div>
+              <div class="wr-control-actions">
+                <button class="btn btn-primary" id="vmd-generate-btn" onclick="generateVmdCompliance()">&#x1F4CA; Generate Compliance</button>
+                <button class="btn btn-teal" id="vmd-export-btn" onclick="exportVmdExcel()" disabled>&#x2B07; Export Excel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="vmd-empty-state">
+          <div class="ico">&#x2705;</div>
+          <p>Klik <strong>Generate Compliance</strong> untuk melihat matriks kepatuhan visibility semua toko bulan ini</p>
+          <p style="font-size:11px;color:var(--muted2);margin-top:4px">Baris = toko &middot; Kolom = program visibility &middot; SCORING = % kepatuhan</p>
+        </div>
+
+        <!-- Loading state -->
+        <div id="vmd-loading-state" style="display:none">
+          <div class="wr-loading-wrap">
+            <div class="spinner"></div>
+            <div class="wr-loading-text">Menghitung compliance...</div>
+          </div>
+        </div>
+
+        <!-- Result area -->
+        <div id="vmd-result-area" style="display:none">
+
+          <!-- KPI bar -->
+          <div class="vmd-kpi-bar" id="vmd-kpi-bar"></div>
+
+          <!-- Matrix table card -->
+          <div class="card">
+            <div class="card-head" style="flex-wrap:wrap;gap:8px">
+              <span class="card-title">&#x1F4CB; Matriks Kepatuhan Toko</span>
+              <span class="last-sync" id="vmd-row-count"></span>
+            </div>
+            <div class="card-body">
+              <div class="vmd-filter-row">
+                <select id="vmd-status-filter">
+                  <option value="ALL">Semua Status</option>
+                  <option value="PATUH">✅ Patuh Penuh</option>
+                  <option value="SEBAGIAN">🟡 Sebagian</option>
+                  <option value="TIDAK">🔴 Tidak Patuh</option>
+                  <option value="TIDAK_IKUT">⚪ Tidak Ikut Alokasi</option>
+                </select>
+                <div class="search-wrap"><input type="text" id="vmd-search" placeholder="Cari toko / SAP code..."></div>
+              </div>
+              <div id="vmd-table-wrap"></div>
+            </div>
+          </div>
+
+        </div><!-- /vmd-result-area -->
+
+      </div><!-- /page-vmd-compliance -->
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
@@ -625,6 +721,8 @@ Link form: {link_form}</textarea></div>
 <script src="js/reportExporter.js"></script>
 <script src="js/weeklyReport.js"></script>
 <script src="js/summaryReport.js"></script>
+<script src="js/vmdMaster.js"></script>
+<script src="js/vmdCompliance.js"></script>
 
 <!-- ===== INIT ===== -->
 <script>
@@ -662,6 +760,7 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     if (p === 'settings')      { loadSettings(); initSLDBSettings(); }
     if (p === 'weekly-report')  initWeeklyReport();
     if (p === 'summary-report') initSummaryReport();
+    if (p === 'vmd-compliance') initVmdCompliance();
     closeSidebar();
     // Reset scroll ke atas — scroll di .main container (bukan window)
     if (mainEl) mainEl.scrollTop = 0;
