@@ -318,7 +318,7 @@ function _renderVmdTable() {
   }
 
   const colHead = cols.map(col =>
-    `<th class="vmd-th vmd-th-prog" title="${col.name}">${col.short}</th>`).join('');
+    `<th class="vmd-th vmd-th-prog" title="${col.name}"><span class="vmd-th-prog-txt">${col.short}</span></th>`).join('');
 
   const bodyHtml = rows.map((r, i) => {
     const cellsHtml = cols.map(col => {

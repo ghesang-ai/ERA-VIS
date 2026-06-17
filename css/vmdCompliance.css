@@ -50,7 +50,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
-  min-width: 720px;
+  table-layout: fixed;
 }
 .vmd-thead {
   background: linear-gradient(90deg, #3B5CE5, #5B21B6);
@@ -60,22 +60,38 @@
   font-weight: 700;
   font-size: 11px;
   text-align: center;
-  padding: 11px 8px;
+  padding: 10px 8px;
   white-space: nowrap;
+  vertical-align: bottom;
   position: sticky;
   top: 0;
 }
-.vmd-th-no    { width: 44px; }
-.vmd-th-code  { width: 84px; }
-.vmd-th-name  { text-align: left; min-width: 240px; }
-.vmd-th-prog  {
-  max-width: 130px;
-  white-space: normal;
-  line-height: 1.2;
+.vmd-th-no    { width: 40px;  padding-left: 4px; padding-right: 4px; }
+.vmd-th-code  { width: 78px; }
+.vmd-th-name  { text-align: left; width: 230px; }
+.vmd-th-score { width: 62px; background: rgba(255,255,255,.10); }
+.vmd-th-status{ width: 112px; }
+
+/* ── Program columns: header diputar vertikal agar ramping & rapi ─ */
+.vmd-th-prog {
+  width: 46px;
+  padding: 12px 0 14px;
   vertical-align: bottom;
+  text-align: center;
+  border-left: 1px solid rgba(255, 255, 255, .14);
 }
-.vmd-th-score { width: 78px; background: rgba(255,255,255,.08); }
-.vmd-th-status{ width: 120px; }
+.vmd-th-prog-txt {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display: inline-block;
+  white-space: normal;
+  max-height: 150px;
+  line-height: 1.18;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  text-align: left;
+}
 
 .vmd-row:nth-child(even) { background: #F8FAFF; }
 .vmd-row:hover           { background: #EEF2FF; }
