@@ -20,14 +20,10 @@ async function loadStoreData(cid) {
       let importRows = [];
       if (c.responseSheetId) {
         try { importRows = await fetchSheet(c.responseSheetId, c.importSheet || DEFAULT_IMPORT_SHEET); }
-        catch (e) { console.warn('[ERA-VIS] fetchSheet error:', e.message); }
+        catch (e) { /* silent — no import sheet yet */ }
       }
-      console.log('[ERA-VIS] importRows fetched:', importRows.length, '| sheet:', c.importSheet);
       currentImportData = parseImport(importRows);
-      console.log('[ERA-VIS] importData parsed:', currentImportData.length, '| sample:', currentImportData.slice(0,3).map(r => r.kodeStore));
       currentMasterData = mergeStatusFromImport(c.localStores, currentImportData);
-      const doneCount = currentMasterData.filter(s => s.status === STATUS.DONE).length;
-      console.log('[ERA-VIS] mergeResult: total', currentMasterData.length, '| DONE:', doneCount, '| NOT DONE:', currentMasterData.length - doneCount);
     } else {
       const rows = await fetchSheet(c.spreadsheetId, c.masterSheet);
       currentMasterData = parseMaster(rows, c.headerRow || DEFAULT_HEADER_ROW);
