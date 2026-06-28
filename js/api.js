@@ -184,7 +184,7 @@ function mergeStatusFromImport(stores, importData) {
     if (k) submitted[k] = { dokumentasi: r.dokumentasi || '', timestamp: r.timestamp || '' };
   });
   return stores.map(s => {
-    const k = s.plantCode.trim().toUpperCase();
+    const k = normalizeKodeStore(s.plantCode);
     if (submitted[k]) return { ...s, status: STATUS.DONE, dokumentasi: submitted[k].dokumentasi };
     return { ...s, status: STATUS.NOT_DONE, dokumentasi: '' };
   });
