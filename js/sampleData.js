@@ -106,7 +106,7 @@ const SAMPLE_REGIONAL_SUMMARY = [
     campaigns_active: 8,
   },
   {
-    region: 'REGION 3',
+    region: 'REGION 5',
     region_name: 'Banten',
     total_stores: 137,
     stores_done: 89,
