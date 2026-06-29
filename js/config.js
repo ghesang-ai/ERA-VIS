@@ -27,14 +27,15 @@ function sheetCsvUrl(spreadsheetId, sheetName) {
 
 // ── LOCALSTORAGE KEYS ─────────────────────────────────────────────
 const SK = {
-  campaigns : 'eravis_campaigns',
-  cache     : 'eravis_cache',
-  settings  : 'eravis_settings',
-  logs      : 'eravis_logs',
-  reminders : 'eravis_reminders',
-  master    : 'eravis_master',
-  sldb      : 'eravis_sldb',
-  deleted   : 'eravis_deleted_campaigns',
+  campaigns    : 'eravis_campaigns',
+  cache        : 'eravis_cache',
+  settings     : 'eravis_settings',
+  logs         : 'eravis_logs',
+  reminders    : 'eravis_reminders',
+  master       : 'eravis_master',
+  sldb         : 'eravis_sldb',
+  deleted      : 'eravis_deleted_campaigns',
+  closedStores : 'eravis_closed_stores',
 };
 
 

@@ -29,6 +29,13 @@ async function loadStoreData(cid) {
       currentMasterData = parseMaster(rows, c.headerRow || DEFAULT_HEADER_ROW);
     }
 
+    // Filter toko tutup
+    if (closedStoreCodes.size > 0) {
+      currentMasterData = currentMasterData.filter(
+        s => !closedStoreCodes.has(normalizeKodeStore(s.plantCode))
+      );
+    }
+
     // Populate WR cache agar Weekly Report bisa pakai data yang sudah ter-merge
     window._eravisWrDataCache = window._eravisWrDataCache || {};
     window._eravisWrDataCache[c.id] = currentMasterData.slice();
@@ -656,6 +663,69 @@ function renderSLDBPreview() {
      </tr>`
   ).join('');
 }
+
+// ── CLOSED STORES ──────────────────────────────────────────────────
+
+function handleClosedStoresDrop(event) {
+  event.preventDefault();
+  document.getElementById('closed-dropzone').classList.remove('over');
+  const f = event.dataTransfer.files[0];
+  if (f) handleClosedStoresFile(f);
+}
+
+function handleClosedStoresFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const wb    = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const codes = parseClosedStoresExcel(wb);
+      if (!codes.length) { toast('Tidak ada kode toko ditemukan', 'error'); return; }
+
+      closedStoreCodes = new Set(codes);
+      save(SK.closedStores, codes);
+
+      document.getElementById('closed-dropzone').className          = 'dropzone loaded';
+      document.getElementById('closed-dropzone-label').textContent  = `✓ ${file.name} (${codes.length} toko tutup)`;
+      document.getElementById('closed-badge').textContent           = codes.length + ' toko';
+      document.getElementById('closed-status').innerHTML =
+        `<span style="color:var(--teal)">✓ ${codes.length} toko tutup tersimpan. Diperbarui: ${new Date().toLocaleString('id-ID')}</span>`;
+      document.getElementById('closed-preview-wrap').style.display  = '';
+      _renderClosedPreview(codes);
+
+      // Reset WR cache agar Weekly Report ikut ter-update
+      window._eravisWrDataCache = {};
+
+      addLog('system', `Closed Stores diperbarui: ${codes.length} toko dari ${file.name}`);
+      toast(`${codes.length} toko tutup disimpan — semua campaign ter-update!`);
+    } catch (err) {
+      toast('Gagal baca Excel: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _renderClosedPreview(codes) {
+  const tbody = document.getElementById('closed-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = codes.slice(0, 50).map(code =>
+    `<tr><td><strong>${esc(code)}</strong></td><td style="font-size:11px;color:var(--muted)">—</td></tr>`
+  ).join('');
+}
+
+function initClosedStoresSettings() {
+  const count = closedStoreCodes.size;
+  document.getElementById('closed-badge').textContent = count > 0 ? count + ' toko' : '—';
+  if (count > 0) {
+    document.getElementById('closed-dropzone').className         = 'dropzone loaded';
+    document.getElementById('closed-dropzone-label').textContent = `✓ ${count} toko tutup tersimpan`;
+    document.getElementById('closed-status').innerHTML =
+      `<span style="color:var(--teal)">Database aktif — ${count} toko tutup disembunyikan dari semua campaign.</span>`;
+    document.getElementById('closed-preview-wrap').style.display = '';
+    _renderClosedPreview([...closedStoreCodes]);
+  }
+}
+
 
 function initSLDBSettings() {
   const count = Object.keys(storeLeaderDB).length;

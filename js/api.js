@@ -245,6 +245,38 @@ function parseExcelStores(rows) {
 }
 
 
+// ── PARSE CLOSED STORES EXCEL ─────────────────────────────────────
+/**
+ * Parse workbook SheetJS untuk daftar toko tutup.
+ * Baca semua sheet, cari kolom Plant/SAP Code, kembalikan array kode yang dinormalisasi.
+ */
+function parseClosedStoresExcel(wb) {
+  const codes = new Set();
+  wb.SheetNames.forEach(sn => {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: '' });
+    if (!rows.length) return;
+
+    let hi = 0;
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      const r = rows[i].map(c => String(c || '').toLowerCase());
+      if (r.some(c => c.includes('plant') || c.includes('sap') || c.includes('kode'))) {
+        hi = i; break;
+      }
+    }
+
+    const hdr  = rows[hi].map(c => String(c || '').trim().toLowerCase());
+    const iCol = hdr.findIndex(h => h.includes('plant') || h.includes('sap') || h === 'kode');
+    const col  = iCol >= 0 ? iCol : 2; // fallback kolom C
+
+    rows.slice(hi + 1).forEach(r => {
+      const code = normalizeKodeStore(String(r[col] || ''));
+      if (code) codes.add(code);
+    });
+  });
+  return [...codes];
+}
+
+
 // ── PARSE STORE LEADER EXCEL ───────────────────────────────────────
 /**
  * Parse workbook SheetJS untuk Store Leader database.

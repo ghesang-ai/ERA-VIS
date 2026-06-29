@@ -136,6 +136,11 @@ async function _fetchWrData(filters) {
         console.warn('[WR] fetch error:', c.name, err.message);
       }
 
+      // Filter toko tutup
+      if (typeof closedStoreCodes !== 'undefined' && closedStoreCodes.size > 0) {
+        merged = merged.filter(s => !closedStoreCodes.has(normalizeKodeStore(s.plantCode)));
+      }
+
       // Simpan ke cache untuk panggilan berikutnya (dalam sesi ini)
       if (merged.length > 0) {
         window._eravisWrDataCache = window._eravisWrDataCache || {};

@@ -293,6 +293,27 @@
               </div>
             </div>
             <div class="card">
+              <div class="card-head"><span class="card-title">&#x1F6AB; Closed Stores</span><span class="ai-badge" id="closed-badge">—</span></div>
+              <div class="card-body">
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Upload Excel daftar toko tutup. Toko-toko ini otomatis disembunyikan dari semua campaign, Data Toko, Dashboard, dan Weekly Report.</p>
+                <div class="dropzone" id="closed-dropzone" style="padding:16px 12px"
+                  onclick="document.getElementById('inp-closed-file').click()"
+                  ondragover="event.preventDefault();this.classList.add('over')"
+                  ondragleave="this.classList.remove('over')"
+                  ondrop="handleClosedStoresDrop(event)">
+                  <div class="dropzone-icon" style="font-size:20px">&#x1F4C2;</div>
+                  <div class="dropzone-label" id="closed-dropzone-label" style="font-size:12px">Drag &amp; drop atau klik — file Excel Closed Stores</div>
+                </div>
+                <input type="file" id="inp-closed-file" accept=".xlsx,.xls" style="display:none" onchange="handleClosedStoresFile(this.files[0])">
+                <div id="closed-status" style="margin-top:8px;font-size:12px"></div>
+                <div id="closed-preview-wrap" style="display:none;margin-top:10px">
+                  <div class="tbl-wrap" style="max-height:200px;overflow-y:auto">
+                    <table style="font-size:11.5px"><thead><tr><th>Plant Code</th><th>Nama Toko</th></tr></thead><tbody id="closed-tbody"></tbody></table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
               <div class="card-head"><span class="card-title">Fonnte WhatsApp API</span></div>
               <div class="card-body">
                 <div class="form-group"><label>API Token</label><input type="password" id="set-fonnte-token" placeholder="Token dari fonnte.com"></div>
@@ -735,7 +756,8 @@ let settings         = JSON.parse(localStorage.getItem(SK.settings)  || '{}');
 let activityLogs     = JSON.parse(localStorage.getItem(SK.logs)      || '[]');
 let reminderHistory  = JSON.parse(localStorage.getItem(SK.reminders) || '{}');
 let masterTokoConfig = JSON.parse(localStorage.getItem(SK.master)    || '{}');
-let storeLeaderDB    = JSON.parse(localStorage.getItem(SK.sldb)      || '{}');
+let storeLeaderDB    = JSON.parse(localStorage.getItem(SK.sldb)         || '{}');
+let closedStoreCodes = new Set(JSON.parse(localStorage.getItem(SK.closedStores) || '[]'));
 
 let currentMasterData = [], currentImportData = [], allMasterToko = [];
 let currentSendStore  = null;
@@ -757,7 +779,7 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     if (lbl) lbl.textContent = PAGE_SUBLABELS[p] || '';
     if (p === 'campaigns')     renderCampaignList();
     if (p === 'logs')          renderLogs();
-    if (p === 'settings')      { loadSettings(); initSLDBSettings(); }
+    if (p === 'settings')      { loadSettings(); initSLDBSettings(); initClosedStoresSettings(); }
     if (p === 'weekly-report')  initWeeklyReport();
     if (p === 'summary-report') initSummaryReport();
     if (p === 'vmd-compliance') initVmdCompliance();
