@@ -477,7 +477,7 @@ async function exportSrPng() {
   if (vp) vp.style.height = 'auto';
   await new Promise(r => setTimeout(r, 200));
   try {
-    const canvas = await html2canvas(slideEl, { scale: 2, width: 1120, height: 630, useCORS: true, allowTaint: true, backgroundColor: '#FAFBFF', logging: false });
+    const canvas = await _captureAs16x9(slideEl, '#FAFBFF');
     _triggerDownload(canvas.toDataURL('image/png'), `ERA-VIS_SummaryReport_${_safeFilename(srState.monthLabel)}_${_dateTag()}.png`);
     toast('Screenshot berhasil diunduh!', 'success');
   } catch (err) {

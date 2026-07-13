@@ -76,7 +76,44 @@ function _dateTag() {
 // ── PNG EXPORT ────────────────────────────────────────────────────
 
 /**
- * Export slide yang sedang ditampilkan sebagai PNG (2x retina quality)
+ * Capture elemen HTML sebagai canvas 16:9 (1120×630 @2x).
+ * Tangkap full height konten → scale ke dalam canvas 16:9 tanpa crop.
+ */
+async function _captureAs16x9(el, bgColor) {
+  const W = 1120, H = 630, SCALE = 2;
+  const fullH = el.scrollHeight || H;
+
+  const fullCanvas = await html2canvas(el, {
+    scale          : SCALE,
+    width          : W,
+    height         : fullH,
+    useCORS        : true,
+    allowTaint     : true,
+    backgroundColor: bgColor || '#ffffff',
+    logging        : false,
+    imageTimeout   : 8000,
+  });
+
+  const out = document.createElement('canvas');
+  out.width  = W * SCALE;
+  out.height = H * SCALE;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = bgColor || '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+
+  // Scale konten agar muat dalam 16:9, pertahankan aspect ratio
+  const ratio  = Math.min(out.width / fullCanvas.width, out.height / fullCanvas.height);
+  const drawW  = fullCanvas.width  * ratio;
+  const drawH  = fullCanvas.height * ratio;
+  const offX   = (out.width  - drawW) / 2;
+  const offY   = (out.height - drawH) / 2;
+  ctx.drawImage(fullCanvas, offX, offY, drawW, drawH);
+
+  return out;
+}
+
+/**
+ * Export slide yang sedang ditampilkan sebagai PNG 16:9 (1120×630 @2x retina)
  *
  * @param {number} slideIndex   - 0-based index
  * @param {string} slideTitle   - judul slide untuk nama file
@@ -100,26 +137,13 @@ async function exportSlidePng(slideIndex, slideTitle) {
   toast('Memproses screenshot...', 'info');
 
   const restore = _prepareForCapture(slideEl, viewportEl, scalerEl);
-
-  // Beri waktu render setelah style change
   await new Promise(r => setTimeout(r, 150));
 
   try {
-    const canvas = await html2canvas(slideEl, {
-      scale        : 2,           // 2× untuk retina quality
-      width        : 1120,
-      height       : 630,
-      useCORS      : true,
-      allowTaint   : true,
-      backgroundColor: '#ffffff',
-      logging      : false,
-      imageTimeout : 8000,
-    });
-
+    const canvas   = await _captureAs16x9(slideEl, '#ffffff');
     const filename = `ERA-VIS_Slide${slideIndex + 1}_${_safeFilename(slideTitle)}_${_dateTag()}.png`;
     _triggerDownload(canvas.toDataURL('image/png'), filename);
     toast('Screenshot berhasil! File PNG terunduh.', 'success');
-
   } catch (err) {
     console.error('[reportExporter] PNG export error:', err);
     toast('Screenshot gagal: ' + err.message, 'error');
