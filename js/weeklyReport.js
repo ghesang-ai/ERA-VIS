@@ -4,6 +4,24 @@
    ================================================================ */
 'use strict';
 
+// ── PERIOD MAP ────────────────────────────────────────────────────
+const WR_PERIOD_MONTH = {
+  current    : { num: 7,  year: 2026 },
+  jan_2026   : { num: 1,  year: 2026 },
+  feb_2026   : { num: 2,  year: 2026 },
+  march_2026 : { num: 3,  year: 2026 },
+  apr_2026   : { num: 4,  year: 2026 },
+  april_2026 : { num: 4,  year: 2026 },
+  may_2026   : { num: 5,  year: 2026 },
+  jun_2026   : { num: 6,  year: 2026 },
+  jul_2026   : { num: 7,  year: 2026 },
+  aug_2026   : { num: 8,  year: 2026 },
+  sep_2026   : { num: 9,  year: 2026 },
+  oct_2026   : { num: 10, year: 2026 },
+  nov_2026   : { num: 11, year: 2026 },
+  dec_2026   : { num: 12, year: 2026 },
+};
+
 // ── STATE ─────────────────────────────────────────────────────────
 const wrState = {
   slides      : [],      // Array of {index, title, type, html}
@@ -65,9 +83,15 @@ function _bindWrListeners() {
  * @returns {Promise<{overview, campaigns, stores, regions}>}
  */
 async function _fetchWrData(filters) {
-  // Ambil campaigns aktif dari global state ERA-VIS
+  // Ambil campaigns aktif dari global state ERA-VIS, filter by periode yang dipilih
+  const periodInfo = WR_PERIOD_MONTH[filters.period] || WR_PERIOD_MONTH['current'];
   const activeCampaigns = (typeof campaigns !== 'undefined' ? campaigns : [])
-    .filter(c => c.status !== 'ended');
+    .filter(c => {
+      if (c.status === 'ended') return false;
+      if (!c.deadline) return true; // tanpa deadline selalu ikut
+      const dl = new Date(c.deadline + 'T00:00:00');
+      return dl.getMonth() + 1 === periodInfo.num && dl.getFullYear() === periodInfo.year;
+    });
 
   if (activeCampaigns.length === 0) {
     // Fallback ke sample data jika belum ada campaign

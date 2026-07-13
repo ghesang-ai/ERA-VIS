@@ -44,8 +44,23 @@ function wrFmtPeriod(start, end) {
  * @returns {string}
  */
 function wrFmtFilterPeriod(period) {
-  const map = { current: 'April 2026', april_2026: 'April 2026', march_2026: 'Maret 2026' };
-  return map[period] || 'April 2026';
+  const map = {
+    current     : 'Juli 2026',
+    jan_2026    : 'Januari 2026',
+    feb_2026    : 'Februari 2026',
+    march_2026  : 'Maret 2026',
+    apr_2026    : 'April 2026',
+    april_2026  : 'April 2026',
+    may_2026    : 'Mei 2026',
+    jun_2026    : 'Juni 2026',
+    jul_2026    : 'Juli 2026',
+    aug_2026    : 'Agustus 2026',
+    sep_2026    : 'September 2026',
+    oct_2026    : 'Oktober 2026',
+    nov_2026    : 'November 2026',
+    dec_2026    : 'Desember 2026',
+  };
+  return map[period] || period;
 }
 
 /**
