@@ -81,7 +81,22 @@ function _dateTag() {
  */
 async function _captureAs16x9(el, bgColor) {
   const W = 1120, H = 630, SCALE = 2;
-  const fullH = el.scrollHeight || H;
+  const bg = bgColor || '#ffffff';
+
+  // Simpan style inline asli elemen itu sendiri (bisa ada height:630px;overflow:hidden)
+  const prevElHeight   = el.style.height;
+  const prevElOverflow = el.style.overflow;
+  const prevElMaxH     = el.style.maxHeight;
+
+  // Lepas constraint height & overflow agar konten bisa expand natural
+  el.style.height   = 'auto';
+  el.style.maxHeight = 'none';
+  el.style.overflow = 'visible';
+
+  // Tunggu browser reflow
+  await new Promise(r => setTimeout(r, 80));
+
+  const fullH = Math.max(el.scrollHeight, el.offsetHeight, H);
 
   const fullCanvas = await html2canvas(el, {
     scale          : SCALE,
@@ -89,24 +104,30 @@ async function _captureAs16x9(el, bgColor) {
     height         : fullH,
     useCORS        : true,
     allowTaint     : true,
-    backgroundColor: bgColor || '#ffffff',
+    backgroundColor: bg,
     logging        : false,
     imageTimeout   : 8000,
   });
 
+  // Kembalikan style asli
+  el.style.height    = prevElHeight;
+  el.style.overflow  = prevElOverflow;
+  el.style.maxHeight = prevElMaxH;
+
+  // Buat canvas output 16:9 presisi
   const out = document.createElement('canvas');
   out.width  = W * SCALE;
   out.height = H * SCALE;
   const ctx = out.getContext('2d');
-  ctx.fillStyle = bgColor || '#ffffff';
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, out.width, out.height);
 
-  // Scale konten agar muat dalam 16:9, pertahankan aspect ratio
-  const ratio  = Math.min(out.width / fullCanvas.width, out.height / fullCanvas.height);
-  const drawW  = fullCanvas.width  * ratio;
-  const drawH  = fullCanvas.height * ratio;
-  const offX   = (out.width  - drawW) / 2;
-  const offY   = (out.height - drawH) / 2;
+  // Fit konten ke dalam 16:9 tanpa crop (letterbox jika perlu)
+  const ratio = Math.min(out.width / fullCanvas.width, out.height / fullCanvas.height);
+  const drawW = fullCanvas.width  * ratio;
+  const drawH = fullCanvas.height * ratio;
+  const offX  = (out.width  - drawW) / 2;
+  const offY  = (out.height - drawH) / 2;
   ctx.drawImage(fullCanvas, offX, offY, drawW, drawH);
 
   return out;
