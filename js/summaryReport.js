@@ -34,13 +34,19 @@ function initSummaryReport() {
 // ── HELPERS ───────────────────────────────────────────────────────
 
 const SR_MONTH_MAP = {
-  'jan_2026': { label: 'Januari 2026',  num: 1, year: 2026 },
-  'feb_2026': { label: 'Februari 2026', num: 2, year: 2026 },
-  'mar_2026': { label: 'Maret 2026',    num: 3, year: 2026 },
-  'current' : { label: 'April 2026',   num: 4, year: 2026 },
-  'apr_2026': { label: 'April 2026',   num: 4, year: 2026 },
-  'may_2026': { label: 'Mei 2026',     num: 5, year: 2026 },
-  'jun_2026': { label: 'Juni 2026',    num: 6, year: 2026 },
+  'jan_2026': { label: 'Januari 2026',  num: 1,  year: 2026 },
+  'feb_2026': { label: 'Februari 2026', num: 2,  year: 2026 },
+  'mar_2026': { label: 'Maret 2026',    num: 3,  year: 2026 },
+  'apr_2026': { label: 'April 2026',    num: 4,  year: 2026 },
+  'may_2026': { label: 'Mei 2026',      num: 5,  year: 2026 },
+  'jun_2026': { label: 'Juni 2026',     num: 6,  year: 2026 },
+  'jul_2026': { label: 'Juli 2026',     num: 7,  year: 2026 },
+  'aug_2026': { label: 'Agustus 2026',  num: 8,  year: 2026 },
+  'sep_2026': { label: 'September 2026',num: 9,  year: 2026 },
+  'oct_2026': { label: 'Oktober 2026',  num: 10, year: 2026 },
+  'nov_2026': { label: 'November 2026', num: 11, year: 2026 },
+  'dec_2026': { label: 'Desember 2026', num: 12, year: 2026 },
+  'current' : { label: 'Juli 2026',     num: 7,  year: 2026 },
 };
 
 function _srMonthInfo(key) {
