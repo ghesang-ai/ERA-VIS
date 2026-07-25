@@ -228,7 +228,7 @@ function parseExcelStores(rows) {
   const iRegion = findCol('region');
   const iCity   = findCol('kota', 'city', 'kab/kota');
   const iNo     = findCol('no.', 'no');
-  const iResi   = findCol('nomor resi', 'no resi', 'resi');
+  const iResi   = findCol('nomor resi', 'no resi', 'resi', 'channel/resi', 'channel');
 
   return rows
     .slice(headerIdx + 1)
