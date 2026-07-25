@@ -156,7 +156,21 @@
       <!-- ===== DATA TOKO ===== -->
       <div class="page" id="page-stores">
         <div class="filter-row">
-          <select id="store-campaign-select" style="font-weight:600"><option value="">-- Pilih Campaign --</option></select>
+          <select id="store-campaign-select" style="display:none"><option value="">-- Pilih Campaign --</option></select>
+          <div class="cp-wrap" id="store-cp-wrap">
+            <button type="button" class="cp-trigger" id="store-cp-trigger" onclick="cpToggle('store')">
+              <span class="cp-trigger-text placeholder" id="store-cp-text">-- Pilih Campaign --</span>
+              <svg class="cp-chevron" id="store-cp-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="cp-dropdown" id="store-cp-dropdown">
+              <div class="cp-search-wrap">
+                <svg class="cp-search-icon" width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <input class="cp-search" id="store-cp-search" type="text" placeholder="Cari campaign…" autocomplete="off" oninput="cpFilter('store')">
+              </div>
+              <div class="cp-list" id="store-cp-list"></div>
+              <div class="cp-footer"><span class="cp-count" id="store-cp-count"></span></div>
+            </div>
+          </div>
           <select id="store-region-filter"><option value="">Semua Region</option></select>
           <select id="store-status-filter"><option value="">Semua Status</option><option value="DONE">DONE</option><option value="NOT DONE">NOT DONE</option></select>
           <select id="store-city-filter"><option value="">Semua City</option></select>
@@ -899,7 +913,8 @@ addLog('system', 'ERA-VIS AI v2.0 started');
 (function() {
   // Config per picker: id prefix → native select id + onChange callback
   const PICKERS = {
-    'dash': { selectId: 'dash-campaign-select', onChange: function(id) { if (id) loadCampaignData(id); else clearDashboard(); } },
+    'dash':  { selectId: 'dash-campaign-select',  onChange: function(id) { if (id) loadCampaignData(id); else clearDashboard(); } },
+    'store': { selectId: 'store-campaign-select', onChange: function(id) { if (id) loadStoreData(id); } },
   };
 
   const MONTH_ORDER = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -1034,7 +1049,7 @@ addLog('system', 'ERA-VIS AI v2.0 started');
   const _origPopulate = populateAllSelects;
   window.populateAllSelects = function() {
     _origPopulate();
-    cpSyncTriggerText('dash');
+    Object.keys(PICKERS).forEach(p => cpSyncTriggerText(p));
   };
 
   // Close on outside click
@@ -1042,8 +1057,8 @@ addLog('system', 'ERA-VIS AI v2.0 started');
     if (!e.target.closest('.cp-wrap')) cpCloseAll();
   });
 
-  // Sync trigger text setelah IIFE selesai
-  cpSyncTriggerText('dash');
+  // Sync semua picker setelah IIFE selesai
+  Object.keys(PICKERS).forEach(p => cpSyncTriggerText(p));
 })();
 </script>
 </body>
