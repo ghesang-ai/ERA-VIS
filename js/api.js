@@ -215,6 +215,11 @@ function parseExcelStores(rows) {
     for (const n of names) {
       if (colMap[n] !== undefined) return colMap[n];
     }
+    // Partial/substring fallback
+    for (const n of names) {
+      const key = Object.keys(colMap).find(k => k.includes(n));
+      if (key !== undefined) return colMap[key];
+    }
     return -1;
   };
 
@@ -223,7 +228,7 @@ function parseExcelStores(rows) {
   const iRegion = findCol('region');
   const iCity   = findCol('kota', 'city', 'kab/kota');
   const iNo     = findCol('no.', 'no');
-  const iResi   = findCol('resi', 'nomor resi', 'no resi');
+  const iResi   = findCol('nomor resi', 'no resi', 'resi');
 
   return rows
     .slice(headerIdx + 1)
