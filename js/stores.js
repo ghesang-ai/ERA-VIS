@@ -12,7 +12,7 @@ async function loadStoreData(cid) {
   const c = campaigns.find(x => x.id === cid);
   if (!c) return;
 
-  resiStatusCache = {};
+  resiStatusCache = _loadResiCache(cid);
 
   try {
     if (c.mode === 'excel') {
@@ -94,6 +94,23 @@ function getDisplayStores() {
 // ── RESI TRACKING ─────────────────────────────────────────────────
 let resiStatusCache = {};
 let resiCheckInProgress = false;
+const RESI_CACHE_TTL_MS = 60 * 60 * 1000; // 1 jam
+
+function _loadResiCache(cid) {
+  try {
+    const raw = localStorage.getItem('era_resi_cache_' + cid);
+    if (!raw) return {};
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > RESI_CACHE_TTL_MS) return {};
+    return data || {};
+  } catch { return {}; }
+}
+
+function _saveResiCache(cid) {
+  try {
+    localStorage.setItem('era_resi_cache_' + cid, JSON.stringify({ ts: Date.now(), data: resiStatusCache }));
+  } catch {}
+}
 
 function _resiStatusBadge(resi) {
   if (!resi) return '<span style="color:var(--muted);font-size:11px">—</span>';
@@ -112,22 +129,24 @@ function _resiStatusBadge(resi) {
 
 async function checkResiStatus() {
   if (resiCheckInProgress) return;
-  const stores = getDisplayStores().filter(s => s.nomorResi && s.nomorResi.trim());
+  const cid = document.getElementById('store-campaign-select').value;
+  const allStores = getDisplayStores();
+  const stores = allStores.filter(s => s.nomorResi && s.nomorResi.trim());
   if (!stores.length) { toast('Tidak ada No Resi di campaign ini', 'warn'); return; }
 
   resiCheckInProgress = true;
   const btn = document.getElementById('btn-cek-resi');
-  if (btn) btn.disabled = true;
+  if (btn) { btn.disabled = true; btn.textContent = '🚚 Mengecek...'; }
 
   const resiNums = [...new Set(stores.map(s => s.nomorResi.trim()))];
   toast(`Mengecek ${resiNums.length} resi...`, 'info');
 
-  // Mark loading
-  resiNums.forEach(r => { resiStatusCache[r] = 'loading'; });
+  resiNums.forEach(r => { if (!resiStatusCache[r]) resiStatusCache[r] = 'loading'; });
   renderStoreTable();
 
   let checked = 0;
   for (const resi of resiNums) {
+    if (resiStatusCache[resi] && resiStatusCache[resi] !== 'loading') { checked++; continue; }
     try {
       const resp = await fetch(`/.netlify/functions/track-resi?resi=${encodeURIComponent(resi)}`);
       const data = await resp.json();
@@ -145,10 +164,11 @@ async function checkResiStatus() {
     if (checked % 5 === 0) renderStoreTable();
   }
 
+  _saveResiCache(cid);
   renderStoreTable();
-  toast(`Selesai! ${checked} resi dicek.`);
+  toast(`Selesai! ${resiNums.length} resi dicek. Cache disimpan 1 jam.`);
   resiCheckInProgress = false;
-  if (btn) btn.disabled = false;
+  if (btn) { btn.disabled = false; btn.textContent = '🚚 Cek Status Resi'; }
 }
 
 
