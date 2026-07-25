@@ -12,6 +12,8 @@ async function loadStoreData(cid) {
   const c = campaigns.find(x => x.id === cid);
   if (!c) return;
 
+  resiStatusCache = {};
+
   try {
     if (c.mode === 'excel') {
       if (!c.localStores || !c.localStores.length) {
@@ -89,6 +91,67 @@ function getDisplayStores() {
 }
 
 
+// ── RESI TRACKING ─────────────────────────────────────────────────
+let resiStatusCache = {};
+let resiCheckInProgress = false;
+
+function _resiStatusBadge(resi) {
+  if (!resi) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  const st = resiStatusCache[resi];
+  if (!st) return `<span style="color:var(--muted);font-size:11px">${esc(resi)}</span>`;
+  if (st === 'loading') return '<span style="color:var(--muted);font-size:11px">Mengecek...</span>';
+  if (st === 'error')   return `<span style="color:var(--red);font-size:11px" title="${esc(resi)}">Gagal</span>`;
+  const map = {
+    RECEIVED : { label: 'Terkirim',          cls: 'badge-done' },
+    DELIVERY : { label: 'Dalam Perjalanan',   cls: 'badge-pending' },
+    'PICK UP': { label: 'Diproses',           cls: 'badge-sent' },
+  };
+  const info = map[st] || { label: st, cls: 'badge-muted' };
+  return `<span class="badge ${info.cls}" title="${esc(resi)}">${info.label}</span>`;
+}
+
+async function checkResiStatus() {
+  if (resiCheckInProgress) return;
+  const stores = getDisplayStores().filter(s => s.nomorResi && s.nomorResi.trim());
+  if (!stores.length) { toast('Tidak ada No Resi di campaign ini', 'warn'); return; }
+
+  resiCheckInProgress = true;
+  const btn = document.getElementById('btn-cek-resi');
+  if (btn) btn.disabled = true;
+
+  const resiNums = [...new Set(stores.map(s => s.nomorResi.trim()))];
+  toast(`Mengecek ${resiNums.length} resi...`, 'info');
+
+  // Mark loading
+  resiNums.forEach(r => { resiStatusCache[r] = 'loading'; });
+  renderStoreTable();
+
+  let checked = 0;
+  for (const resi of resiNums) {
+    try {
+      const resp = await fetch(`/.netlify/functions/track-resi?resi=${encodeURIComponent(resi)}`);
+      const data = await resp.json();
+      const results = data?.express21?.results?.data;
+      if (results && results.length > 0) {
+        const detail = results[0]?.shipment_detail;
+        resiStatusCache[resi] = detail?.status || 'UNKNOWN';
+      } else {
+        resiStatusCache[resi] = 'error';
+      }
+    } catch (e) {
+      resiStatusCache[resi] = 'error';
+    }
+    checked++;
+    if (checked % 5 === 0) renderStoreTable();
+  }
+
+  renderStoreTable();
+  toast(`Selesai! ${checked} resi dicek.`);
+  resiCheckInProgress = false;
+  if (btn) btn.disabled = false;
+}
+
+
 // ── RENDER STORE TABLE ─────────────────────────────────────────────
 function renderStoreTable() {
   const region = document.getElementById('store-region-filter').value;
@@ -109,8 +172,13 @@ function renderStoreTable() {
   document.getElementById('store-count').textContent = stores.length + ' toko';
   const tbody = document.getElementById('store-tbody');
 
+  // Show/hide Cek Resi button based on whether campaign has resi data
+  const hasResi = getDisplayStores().some(s => s.nomorResi && s.nomorResi.trim());
+  const resiBtn = document.getElementById('btn-cek-resi');
+  if (resiBtn) resiBtn.style.display = hasResi ? '' : 'none';
+
   if (!stores.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
     return;
   }
 
@@ -118,6 +186,7 @@ function renderStoreTable() {
     const badgeClass = s.status === STATUS.DONE     ? 'badge-done'
                      : s.status === STATUS.NOT_DONE ? 'badge-notdone'
                      :                                'badge-muted';
+    const resi = s.nomorResi ? s.nomorResi.trim() : '';
     return `<tr>
       <td>${i + 1}</td>
       <td>${esc(s.region)}</td>
@@ -125,6 +194,8 @@ function renderStoreTable() {
       <td>${esc(s.plantDesc)}</td>
       <td><span class="badge ${badgeClass}">${s.status}</span></td>
       <td>${esc(s.city)}</td>
+      <td style="font-family:var(--mono);font-size:11px">${resi ? esc(resi) : '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${_resiStatusBadge(resi)}</td>
       <td>${s.dokumentasi && s.dokumentasi.startsWith('http')
         ? `<a href="${esc(s.dokumentasi)}" target="_blank">Lihat</a>`
         : '—'}</td>

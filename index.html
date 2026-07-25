@@ -177,12 +177,13 @@
           <div class="search-wrap"><input type="text" id="store-search" placeholder="Cari toko..."></div>
           <button class="btn btn-sm btn-teal" onclick="exportExcel()">&#x2B07; Export Excel</button>
           <button class="btn btn-sm btn-copy-text" id="btn-copy-text" onclick="copyStoresToText()" style="display:none">&#x1F4CB; Copy To Text</button>
+          <button class="btn btn-sm" id="btn-cek-resi" onclick="checkResiStatus()" style="background:var(--blue);color:#fff;display:none">&#x1F69A; Cek Status Resi</button>
         </div>
         <div id="participation-summary" style="display:none"></div>
         <div class="card">
           <div class="card-head"><span class="card-title">Daftar Toko</span><span class="last-sync" id="store-count"></span></div>
           <div class="card-body"><div class="tbl-wrap">
-            <table><thead><tr><th>No</th><th>Region</th><th>Plant Code</th><th>Nama Toko</th><th>Status</th><th>City</th><th>Dokumentasi</th></tr></thead><tbody id="store-tbody"></tbody></table>
+            <table><thead><tr><th>No</th><th>Region</th><th>Plant Code</th><th>Nama Toko</th><th>Status</th><th>City</th><th>No Resi</th><th>Status Resi</th><th>Dokumentasi</th></tr></thead><tbody id="store-tbody"></tbody></table>
           </div></div>
         </div>
       </div>
