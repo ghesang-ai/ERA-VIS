@@ -979,7 +979,6 @@ addLog('system', 'ERA-VIS AI v2.0 started');
         const storeCount = c.localStores ? c.localStores.length : 0;
         const metaText = isEnded ? 'Ended' : (storeCount > 0 ? storeCount.toLocaleString('id') + ' toko' : 'Belum upload Excel');
         html += `<div class="cp-item${isSel ? ' selected' : ''}" onclick="cpSelect('${prefix}','${esc(c.id)}')">
-          <div class="cp-item-icon ${iconCls}">${iconTxt}</div>
           <div class="cp-item-body">
             <div class="cp-item-name">${hl(c.name, query)}${isEnded ? ' <span style="font-size:10px;color:var(--muted2)">(Ended)</span>' : ''}</div>
             <div class="cp-item-meta"><span>${metaText}</span></div>
