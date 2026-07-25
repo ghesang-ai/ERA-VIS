@@ -216,6 +216,7 @@ function renderCampaignList() {
 // ── SELECT CAMPAIGN → GO TO DASHBOARD ─────────────────────────────
 function selectCampaignAndGo(id) {
   document.getElementById('dash-campaign-select').value = id;
+  if (typeof cpSyncTriggerText === 'function') cpSyncTriggerText('dash');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('.nav-btn[data-page="dashboard"]').classList.add('active');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
