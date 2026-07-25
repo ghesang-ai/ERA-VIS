@@ -534,6 +534,7 @@ async function pushCampaignsToCloud() {
       plantDesc: s.plantDesc,
       region   : s.region,
       city     : s.city,
+      nomorResi: s.nomorResi || '',
     }));
     try {
       await fetch(STORE_SYNC_PROXY, {
@@ -597,7 +598,8 @@ function shareCampaignsUrl() {
             plantDesc : s.plantDesc,
             region    : s.region,
             city      : s.city,
-            status    : s.status || ''
+            status    : s.status || '',
+            nomorResi : s.nomorResi || '',
           }))
         };
       }
