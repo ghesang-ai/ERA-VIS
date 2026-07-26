@@ -9,7 +9,7 @@
 
 // ── LOAD DATA TOKO ─────────────────────────────────────────────────
 async function loadStoreData(cid) {
-  const c = campaigns.find(x => x.id === cid);
+  let c = campaigns.find(x => x.id === cid);
   if (!c) return;
 
   resiStatusCache = _loadResiCache(cid);
@@ -17,7 +17,22 @@ async function loadStoreData(cid) {
   try {
     if (c.mode === 'excel') {
       if (!c.localStores || !c.localStores.length) {
-        toast('Upload Excel di edit campaign', 'error'); return;
+        // Coba pull dari cloud dulu sebelum menyerah
+        toast('Mengambil data toko dari cloud...', 'info');
+        try {
+          const res = await fetch(`/.netlify/functions/store-sync?id=${encodeURIComponent(cid)}`);
+          if (res.ok) {
+            const pulled = await res.json();
+            if (Array.isArray(pulled) && pulled.length) {
+              const idx = campaigns.findIndex(x => x.id === cid);
+              if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores: pulled };
+              c = campaigns[idx];
+            }
+          }
+        } catch (_) {}
+        if (!c.localStores || !c.localStores.length) {
+          toast('Upload Excel di edit campaign', 'error'); return;
+        }
       }
       let importRows = [];
       if (c.responseSheetId) {
