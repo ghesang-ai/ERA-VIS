@@ -383,7 +383,7 @@ function getStoresFromSheets(sheetNames) {
 
 
 // ── SAVE CAMPAIGN ──────────────────────────────────────────────────
-function saveCampaign() {
+async function saveCampaign() {
   const mode = document.getElementById('inp-mode').value;
   const name = document.getElementById('inp-name').value.trim();
   const fl   = document.getElementById('inp-form-link').value.trim();
@@ -410,6 +410,22 @@ function saveCampaign() {
     } else if (eid) {
       const existing = campaigns.find(x => x.id === eid);
       localStores    = existing ? existing.localStores : null;
+
+      // localStores belum ada di browser ini — coba pull dari cloud dulu
+      if ((!localStores || !localStores.length) && eid) {
+        toast('Mengambil data toko dari cloud...', 'info');
+        try {
+          const res = await fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(eid)}`);
+          if (res.ok) {
+            const pulled = await res.json();
+            if (Array.isArray(pulled) && pulled.length) {
+              localStores = pulled;
+              const idx = campaigns.findIndex(x => x.id === eid);
+              if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores };
+            }
+          }
+        } catch (e) { /* silent */ }
+      }
     }
 
     if (!localStores || !localStores.length) {
