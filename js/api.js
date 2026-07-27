@@ -202,10 +202,12 @@ function parseExcelStores(rows) {
 
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const joined = rows[i].map(c => String(c || '').trim().toLowerCase()).join(' ');
-    if (joined.includes('plant') || joined.includes('kode') || joined.includes('code')) {
+    if (joined.includes('plant') || joined.includes('kode') || joined.includes('code') ||
+        joined.includes('sap') || joined.includes('store name') || joined.includes('nama toko')) {
       headerIdx = i;
       rows[i].forEach((h, idx) => {
-        colMap[String(h || '').trim().toLowerCase()] = idx;
+        // Normalize header: strip newlines and extra spaces
+        colMap[String(h || '').replace(/[\r\n]+/g, ' ').trim().toLowerCase()] = idx;
       });
       break;
     }
@@ -223,8 +225,8 @@ function parseExcelStores(rows) {
     return -1;
   };
 
-  const iCode   = findCol('plant code', 'kode toko', 'kode', 'code');
-  const iDesc   = findCol('plant desc', 'nama toko', 'plant description', 'store name', 'desc');
+  const iCode   = findCol('plant code', 'sap code', 'kode toko', 'kode', 'sap', 'code');
+  const iDesc   = findCol('plant desc', 'store name', 'nama toko', 'plant description', 'desc');
   const iRegion = findCol('region');
   const iCity   = findCol('kota', 'city', 'kab/kota');
   const iNo     = findCol('no.', 'no');
