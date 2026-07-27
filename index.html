@@ -204,7 +204,21 @@
       <!-- ===== AUTO REMINDER ===== -->
       <div class="page" id="page-reminder">
         <div class="filter-row">
-          <select id="rem-campaign-select" style="font-weight:600"><option value="">-- Pilih Campaign --</option></select>
+          <select id="rem-campaign-select" style="display:none"><option value="">-- Pilih Campaign --</option></select>
+          <div class="cp-wrap" id="rem-cp-wrap">
+            <button type="button" class="cp-trigger" id="rem-cp-trigger" onclick="cpToggle('rem')">
+              <span class="cp-trigger-text placeholder" id="rem-cp-text">-- Pilih Campaign --</span>
+              <svg class="cp-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="cp-dropdown" id="rem-cp-dropdown">
+              <div class="cp-search-wrap">
+                <svg class="cp-search-icon" width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <input class="cp-search" id="rem-cp-search" type="text" placeholder="Cari campaign…" autocomplete="off" oninput="cpFilter('rem')">
+              </div>
+              <div class="cp-list" id="rem-cp-list"></div>
+              <div class="cp-footer"><span class="cp-count" id="rem-cp-count"></span></div>
+            </div>
+          </div>
           <select id="rem-region-filter" onchange="renderReminderTable()"><option value="">Semua Region</option></select>
           <select id="rem-city-filter" onchange="renderReminderTable()"><option value="">Semua City</option></select>
           <select id="rem-sl-filter" onchange="renderReminderTable()"><option value="">Semua SL</option><option value="ada">Ada No HP</option><option value="belum">Belum Ada No HP</option></select>
@@ -841,9 +855,6 @@ document.getElementById('store-campaign-select').addEventListener('change', func
 document.getElementById('lb-campaign-select').addEventListener('change', function() {
   if (this.value) loadLeaderboard(this.value);
 });
-document.getElementById('rem-campaign-select').addEventListener('change', function() {
-  if (this.value) loadReminderPage(this.value);
-});
 
 // ── LOG FILTER ────────────────────────────────────────────────────
 document.getElementById('log-filter-type').addEventListener('change', renderLogs);
@@ -916,6 +927,7 @@ addLog('system', 'ERA-VIS AI v2.0 started');
   const PICKERS = {
     'dash':  { selectId: 'dash-campaign-select',  onChange: function(id) { if (id) loadCampaignData(id); else clearDashboard(); } },
     'store': { selectId: 'store-campaign-select', onChange: function(id) { if (id) loadStoreData(id); } },
+    'rem':   { selectId: 'rem-campaign-select',   onChange: function(id) { if (id) loadReminderPage(id); } },
   };
 
   const MONTH_ORDER = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
