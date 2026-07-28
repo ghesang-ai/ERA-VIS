@@ -151,7 +151,7 @@ function parseImport(rows) {
       return -1;
     };
     const t = findCol('timestamp', 'waktu');
-    const k = findCol('kode bu', 'kode store', 'kode_store', 'plant code', 'store apple');
+    const k = findCol('kode bu', 'kode store', 'kode_store', 'kode toko', 'plant code', 'store apple', 'kode');
     const n = findCol('nama store', 'nama toko', 'store name');
     const r = findCol('region');
     const d = findCol('dokumentasi easel', 'dokumentasi', 'store front', 'close up', 'foto');
