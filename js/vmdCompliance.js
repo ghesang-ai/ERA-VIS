@@ -95,7 +95,10 @@ async function _vmdCampaignStores(c) {
   let merged = [];
   try {
     if (c.mode === 'excel') {
-      const masterStores = Array.isArray(c.localStores) ? c.localStores : [];
+      // Pakai localStores; kalau kosong di device ini, tarik dari cloud dulu
+      const masterStores = (Array.isArray(c.localStores) && c.localStores.length)
+        ? c.localStores
+        : (await ensureLocalStores(c.id)).stores;
       let importRows = [];
       if (c.responseSheetId) {
         try { importRows = await fetchSheet(c.responseSheetId, c.importSheet || DEFAULT_IMPORT_SHEET); }

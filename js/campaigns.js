@@ -578,7 +578,10 @@ async function pullLocalStoresFromCloud() {
   await Promise.all(missing.map(async c => {
     try {
       const res = await fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(c.id)}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn('[ERA-VIS] localStores pull gagal untuk', c.id, 'HTTP', res.status);
+        return;
+      }
       const stores = await res.json();
       if (Array.isArray(stores) && stores.length) {
         const idx = campaigns.findIndex(x => x.id === c.id);
@@ -589,7 +592,11 @@ async function pullLocalStoresFromCloud() {
     }
   }));
 
-  save(SK.campaigns, campaigns);
+  // Di HP, localStorage bisa penuh saat menyimpan semua localStores sekaligus.
+  // Kalau gagal, data tetap ada di memori untuk sesi ini — jangan sampai
+  // exception-nya membatalkan sisa proses sync.
+  try { save(SK.campaigns, campaigns); }
+  catch (e) { console.warn('[ERA-VIS] localStorage penuh saat cache localStores:', e.message); }
 }
 
 // Force push semua campaign lokal ke cloud (untuk recovery / debug)
@@ -728,12 +735,16 @@ function deleteCampaign(id) {
 
 // ── LOAD LEADERBOARD ───────────────────────────────────────────────
 async function loadLeaderboard(cid) {
-  const c = campaigns.find(x => x.id === cid);
+  let c = campaigns.find(x => x.id === cid);
   if (!c) return;
   try {
     let stores;
     if (c.mode === 'excel') {
-      if (!c.localStores || !c.localStores.length) { toast('Upload Excel di edit campaign','error'); return; }
+      if (!c.localStores || !c.localStores.length) {
+        const pulled = await ensureLocalStores(cid);
+        if (!pulled.ok) { toastLocalStoresError(pulled); return; }
+        c = campaigns.find(x => x.id === cid) || c;
+      }
       let importRows = [];
       if (c.responseSheetId) {
         try { importRows = await fetchSheet(c.responseSheetId, c.importSheet || DEFAULT_IMPORT_SHEET); }

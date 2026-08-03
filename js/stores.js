@@ -17,22 +17,11 @@ async function loadStoreData(cid) {
   try {
     if (c.mode === 'excel') {
       if (!c.localStores || !c.localStores.length) {
-        // Coba pull dari cloud dulu sebelum menyerah
+        // Belum ada di device ini (mis. dibuka di HP) — tarik dari cloud
         toast('Mengambil data toko dari cloud...', 'info');
-        try {
-          const res = await fetch(`/.netlify/functions/store-sync?id=${encodeURIComponent(cid)}`);
-          if (res.ok) {
-            const pulled = await res.json();
-            if (Array.isArray(pulled) && pulled.length) {
-              const idx = campaigns.findIndex(x => x.id === cid);
-              if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores: pulled };
-              c = campaigns[idx];
-            }
-          }
-        } catch (_) {}
-        if (!c.localStores || !c.localStores.length) {
-          toast('Upload Excel di edit campaign', 'error'); return;
-        }
+        const pulled = await ensureLocalStores(cid);
+        if (!pulled.ok) { toastLocalStoresError(pulled); return; }
+        c = campaigns.find(x => x.id === cid) || c;
       }
       let importRows = [];
       if (c.responseSheetId) {
@@ -440,12 +429,16 @@ function exportExcel() {
 
 // ── AUTO REMINDER PAGE ─────────────────────────────────────────────
 async function loadReminderPage(cid) {
-  const c = campaigns.find(x => x.id === cid);
+  let c = campaigns.find(x => x.id === cid);
   if (!c) return;
 
   try {
     if (c.mode === 'excel') {
-      if (!c.localStores || !c.localStores.length) { toast('Upload Excel di edit campaign','error'); return; }
+      if (!c.localStores || !c.localStores.length) {
+        const pulled = await ensureLocalStores(cid);
+        if (!pulled.ok) { toastLocalStoresError(pulled); return; }
+        c = campaigns.find(x => x.id === cid) || c;
+      }
       let importRows = [];
       if (c.responseSheetId) {
         try { importRows = await fetchSheet(c.responseSheetId, c.importSheet || DEFAULT_IMPORT_SHEET); }

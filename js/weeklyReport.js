@@ -133,7 +133,9 @@ async function _fetchWrData(filters) {
       try {
         if (c.mode === 'excel') {
           // Excel mode: localStores sudah ada, merge dengan import responses
-          const masterStores = Array.isArray(c.localStores) ? c.localStores : [];
+          const masterStores = (Array.isArray(c.localStores) && c.localStores.length)
+            ? c.localStores
+            : (await ensureLocalStores(c.id)).stores;
           let importRows = [];
           console.log('[WR] excel masterStores:', masterStores.length, 'responseSheetId:', c.responseSheetId);
           if (c.responseSheetId) {

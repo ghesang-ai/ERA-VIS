@@ -9,7 +9,7 @@
 
 // ── LOAD CAMPAIGN DATA (main entry point) ─────────────────────────
 async function loadCampaignData(cid) {
-  const c = campaigns.find(x => x.id === cid);
+  let c = campaigns.find(x => x.id === cid);
   if (!c) return;
 
   document.getElementById('dash-empty').style.display    = 'none';
@@ -23,8 +23,10 @@ async function loadCampaignData(cid) {
 
     if (c.mode === 'excel') {
       if (!c.localStores || !c.localStores.length) {
-        toast('Data toko belum ada — edit campaign untuk upload Excel', 'error');
-        return;
+        // Belum ada di device ini (mis. dibuka di HP) — tarik dari cloud
+        const pulled = await ensureLocalStores(cid);
+        if (!pulled.ok) { toastLocalStoresError(pulled); return; }
+        c = campaigns.find(x => x.id === cid) || c;
       }
       if (c.responseSheetId) {
         try {

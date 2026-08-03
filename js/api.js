@@ -172,6 +172,70 @@ function parseImport(rows) {
 }
 
 
+// ── ENSURE LOCAL STORES (cross-device) ─────────────────────────────
+/**
+ * Pastikan campaign mode Excel punya localStores di device ini.
+ *
+ * Data toko hasil upload Excel disimpan di localStorage device yang upload,
+ * jadi saat dibuka di HP/browser lain array-nya kosong. Fungsi ini menarik
+ * ulang dari Netlify Blobs (/store-sync) dan menyimpannya ke localStorage.
+ *
+ * Return { ok, stores, reason }:
+ *   ok:true                 → stores siap dipakai
+ *   reason 'empty'          → cloud tidak punya data (memang belum pernah upload)
+ *   reason 'offline'|'error'→ gagal hubungi/baca cloud (bukan salah user)
+ */
+async function ensureLocalStores(cid) {
+  const c = campaigns.find(x => x.id === cid);
+  if (!c) return { ok: false, stores: [], reason: 'not-found' };
+  if (c.localStores && c.localStores.length) {
+    return { ok: true, stores: c.localStores, reason: 'local' };
+  }
+
+  let res;
+  try {
+    res = await fetch(`/.netlify/functions/store-sync?id=${encodeURIComponent(cid)}`, { cache: 'no-store' });
+  } catch (e) {
+    console.warn('[ERA-VIS] store-sync tidak bisa dihubungi:', e.message);
+    return { ok: false, stores: [], reason: 'offline' };
+  }
+
+  if (!res.ok) {
+    let detail = 'HTTP ' + res.status;
+    try { detail = (await res.json()).error || detail; } catch (_) {}
+    console.warn('[ERA-VIS] store-sync error:', detail);
+    return { ok: false, stores: [], reason: 'error', detail };
+  }
+
+  let pulled;
+  try { pulled = await res.json(); } catch (_) { return { ok: false, stores: [], reason: 'error' }; }
+  if (!Array.isArray(pulled) || !pulled.length) {
+    return { ok: false, stores: [], reason: 'empty' };
+  }
+
+  const idx = campaigns.findIndex(x => x.id === cid);
+  if (idx >= 0) {
+    campaigns[idx] = { ...campaigns[idx], localStores: pulled };
+    try { save(SK.campaigns, campaigns); }
+    catch (e) { console.warn('[ERA-VIS] localStorage penuh, localStores tidak dicache:', e.message); }
+  }
+  return { ok: true, stores: pulled, reason: 'cloud' };
+}
+
+/**
+ * Toast pesan error yang sesuai penyebab dari ensureLocalStores().
+ */
+function toastLocalStoresError(result) {
+  if (result.reason === 'empty') {
+    toast('Data toko belum ada — upload Excel di edit campaign', 'error');
+  } else if (result.reason === 'offline') {
+    toast('Tidak ada koneksi ke server — data toko gagal diambil', 'error');
+  } else {
+    toast('Gagal ambil data toko dari cloud' + (result.detail ? ': ' + result.detail : ''), 'error');
+  }
+}
+
+
 // ── MERGE STATUS FROM IMPORT ───────────────────────────────────────
 /**
  * Gabungkan daftar toko (localStores dari Excel) dengan
