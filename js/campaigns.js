@@ -601,6 +601,53 @@ async function pullLocalStoresFromCloud() {
   catch (e) { console.warn('[ERA-VIS] localStorage penuh saat cache localStores:', e.message); }
 }
 
+// ── PUSH DATA TOKO YANG BELUM ADA DI CLOUD ─────────────────────────
+// Device yang upload Excel menyimpan localStores di localStorage-nya sendiri.
+// Kalau push ke Blobs pernah gagal (mis. saat store-sync error), HP/browser
+// lain tidak akan pernah dapat datanya. Cek daftar key di cloud, lalu kirim
+// campaign yang belum ada — supaya device ini otomatis "menyembuhkan" cloud.
+async function pushMissingLocalStores() {
+  const owned = campaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
+  if (!owned.length) return 0;
+
+  let keys;
+  try {
+    const res = await fetch(`${STORE_SYNC_PROXY}?keys=1`, { cache: 'no-store' });
+    if (!res.ok) return 0;
+    keys = new Set(await res.json());
+  } catch (e) {
+    console.warn('[ERA-VIS] cek isi cloud gagal:', e.message);
+    return 0;
+  }
+
+  const missing = owned.filter(c => !keys.has(c.id));
+  if (!missing.length) return 0;
+
+  await Promise.all(missing.map(async c => {
+    const minStores = c.localStores.map(s => ({
+      plantCode: s.plantCode,
+      plantDesc: s.plantDesc,
+      region   : s.region,
+      city     : s.city,
+      nomorResi: s.nomorResi || '',
+    }));
+    try {
+      const res = await fetch(STORE_SYNC_PROXY, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ id: c.id, localStores: minStores }),
+      });
+      if (res.ok) console.log(`[ERA-VIS] data toko "${c.name}" (${minStores.length}) dikirim ke cloud`);
+      else        console.warn('[ERA-VIS] push data toko gagal untuk', c.id, 'HTTP', res.status);
+    } catch (e) {
+      console.warn('[ERA-VIS] push data toko gagal untuk', c.id, e.message);
+    }
+  }));
+
+  return missing.length;
+}
+
+
 // ── BERSIHKAN DATA TOKO LAMA ───────────────────────────────────────
 // Upload Excel versi lama bisa ikut menyimpan baris non-toko (label form
 // vertikal dari sheet "TAG ALAMAT" / "FORM": NAMA STORE, ALAMAT, QTY, dst).

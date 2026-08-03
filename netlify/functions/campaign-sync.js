@@ -25,12 +25,21 @@ exports.handler = async (event) => {
       const resp = await fetch(APPS_SCRIPT_URL, { redirect: 'follow' });
       const text = await resp.text();
       let data;
-      try { data = JSON.parse(text); } catch { data = []; }
-      return {
-        statusCode: 200,
-        headers: HEADERS,
-        body: JSON.stringify(Array.isArray(data) ? data : []),
-      };
+      try { data = JSON.parse(text); } catch { data = null; }
+
+      // JANGAN balas [] saat Apps Script gagal (kadang balas halaman HTML).
+      // Client menganggap [] = "cloud kosong" lalu push data lokal ke cloud —
+      // bisa menimpa campaign yang sebenarnya masih ada di cloud.
+      if (!Array.isArray(data)) {
+        console.error('[ERA-VIS] Apps Script balas non-JSON:', resp.status, text.slice(0, 200));
+        return {
+          statusCode: 502,
+          headers: HEADERS,
+          body: JSON.stringify({ error: 'Apps Script tidak mengembalikan JSON (HTTP ' + resp.status + ')' }),
+        };
+      }
+
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify(data) };
     }
 
     // ── POST: simpan campaigns ke Apps Script ──────────────────────

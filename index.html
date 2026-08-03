@@ -779,7 +779,7 @@ Link form: {link_form}</textarea></div>
 <script src="js/api.js?v=20260803"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/stores.js?v=20260406"></script>
-<script src="js/campaigns.js?v=20260803"></script>
+<script src="js/campaigns.js?v=20260803b"></script>
 <script src="js/sampleData.js"></script>
 <script src="js/slideGenerator.js"></script>
 <script src="js/reportExporter.js"></script>
@@ -909,6 +909,10 @@ syncCampaignsFromCloud().then(result => {
   }
   // result === 'empty'  → syncCampaignsFromCloud sudah push internal, tidak perlu push lagi
   // result === false    → network error, jangan push agar cloud tidak tertimpa data lokal yang stale
+}).finally(() => {
+  // Data toko Excel hanya ada di device yang upload. Kirim yang belum sampai
+  // ke cloud (jalan juga saat sync metadata gagal) supaya bisa dibuka di HP.
+  if (typeof pushMissingLocalStores === 'function') pushMissingLocalStores();
 });
 
 const activeCampaign = campaigns.find(c => c.status !== 'ended');

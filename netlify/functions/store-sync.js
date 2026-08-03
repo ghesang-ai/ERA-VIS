@@ -43,7 +43,9 @@ function makeStore(mode, event) {
   }
   if (mode === 'auto') {
     if (!process.env.NETLIFY_BLOBS_CONTEXT) return null;
-    return getStore({ name: STORE_NAME, consistency: 'strong' });
+    // consistency default juga di sini: connectLambda() ikut mengisi
+    // NETLIFY_BLOBS_CONTEXT tanpa uncachedEdgeURL, jadi 'strong' pasti gagal.
+    return getStore({ name: STORE_NAME });
   }
   const siteID = process.env.SITE_ID || process.env.NETLIFY_SITE_ID;
   const token  = process.env.NETLIFY_AUTH_TOKEN;
@@ -103,6 +105,15 @@ exports.handler = async (event) => {
       if (event.queryStringParameters?.diag) {
         const diag = await diagnose(event);
         return { statusCode: 200, headers: HEADERS, body: JSON.stringify(diag) };
+      }
+      // Daftar campaign yang datanya sudah ada di cloud (untuk cek cepat)
+      if (event.queryStringParameters?.keys) {
+        const { blobs } = await withStore(event, s => s.list());
+        return {
+          statusCode: 200,
+          headers   : HEADERS,
+          body      : JSON.stringify(blobs.map(b => b.key)),
+        };
       }
       const id = event.queryStringParameters?.id;
       if (!id) {
