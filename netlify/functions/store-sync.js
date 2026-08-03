@@ -1,11 +1,13 @@
 // ERA-VIS — LocalStores Sync via Netlify Blobs
 //
-// Konfigurasi Blobs:
-//   1. Auto-config — dipakai duluan. Netlify menyuntikkan kredensial deploy
-//      (NETLIFY_BLOBS_CONTEXT) ke setiap Function, jadi tidak butuh token apa pun.
-//   2. Personal access token (NETLIFY_AUTH_TOKEN + SITE_ID) — hanya dipakai
-//      kalau auto-config gagal. Token yang kedaluwarsa TIDAK lagi memblokir
-//      auto-config seperti versi sebelumnya.
+// Konfigurasi Blobs (dicoba berurutan, yang pertama berhasil dipakai):
+//   1. connectLambda(event) — WAJIB untuk function format lama (exports.handler).
+//      Netlify menaruh kredensial deploy di event.blobs, bukan di env var, jadi
+//      tanpa panggilan ini getStore() error "environment has not been configured".
+//      Tidak butuh token sama sekali.
+//   2. Auto-config via env NETLIFY_BLOBS_CONTEXT (function format baru).
+//   3. Personal access token (NETLIFY_AUTH_TOKEN + SITE_ID) — fallback terakhir.
+//      Token kedaluwarsa TIDAK memblokir dua mode di atas.
 //
 // GET  ?id=<campaignId>  → ambil localStores untuk satu campaign
 // GET  ?diag=1           → cek konfigurasi Blobs (untuk debug, tanpa bocorkan token)
@@ -14,7 +16,7 @@
 
 'use strict';
 
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 const HEADERS = {
   'Access-Control-Allow-Origin' : '*',
@@ -25,24 +27,37 @@ const HEADERS = {
 
 const STORE_NAME = 'localstores';
 
-// Bikin store instance. mode 'auto' = kredensial deploy, 'token' = PAT manual.
-function makeStore(mode) {
-  if (mode === 'token') {
-    const siteID = process.env.SITE_ID || process.env.NETLIFY_SITE_ID;
-    const token  = process.env.NETLIFY_AUTH_TOKEN;
-    if (!siteID || !token) return null;
-    return getStore({ name: STORE_NAME, siteID, token, consistency: 'strong' });
+const MODES = ['lambda', 'auto', 'token'];
+
+// Bikin store instance untuk satu mode. Return null kalau mode tidak tersedia.
+//
+// Catatan konsistensi: connectLambda() hanya menyediakan edgeURL (tanpa
+// uncachedEdgeURL), jadi consistency 'strong' akan error di mode lambda —
+// pakai default (eventual). Cukup untuk data toko: tulis lalu baca dari
+// device lain jaraknya jauh lebih lama dari lag replikasi.
+function makeStore(mode, event) {
+  if (mode === 'lambda') {
+    if (!event || !event.blobs) return null;
+    connectLambda(event);              // ambil kredensial dari event.blobs
+    return getStore({ name: STORE_NAME });
   }
-  return getStore({ name: STORE_NAME, consistency: 'strong' });
+  if (mode === 'auto') {
+    if (!process.env.NETLIFY_BLOBS_CONTEXT) return null;
+    return getStore({ name: STORE_NAME, consistency: 'strong' });
+  }
+  const siteID = process.env.SITE_ID || process.env.NETLIFY_SITE_ID;
+  const token  = process.env.NETLIFY_AUTH_TOKEN;
+  if (!siteID || !token) return null;
+  return getStore({ name: STORE_NAME, siteID, token, consistency: 'strong' });
 }
 
-// Jalankan operasi Blobs: coba auto-config dulu, kalau error baru pakai token.
+// Jalankan operasi Blobs: coba tiap mode sampai ada yang berhasil.
 // Semua operasi di sini idempotent, jadi retry aman.
-async function withStore(fn) {
+async function withStore(event, fn) {
   let lastErr = null;
-  for (const mode of ['auto', 'token']) {
+  for (const mode of MODES) {
     let store;
-    try { store = makeStore(mode); }
+    try { store = makeStore(mode, event); }
     catch (e) { lastErr = e; continue; }
     if (!store) continue;
     try { return await fn(store); }
@@ -55,17 +70,18 @@ async function withStore(fn) {
 }
 
 // Diagnosa konfigurasi — dipakai untuk cek cepat kenapa sync gagal.
-async function diagnose() {
+async function diagnose(event) {
   const out = {
+    hasEventBlobs  : Boolean(event && event.blobs),
     hasBlobsContext: Boolean(process.env.NETLIFY_BLOBS_CONTEXT),
     hasSiteId      : Boolean(process.env.SITE_ID || process.env.NETLIFY_SITE_ID),
     hasAuthToken   : Boolean(process.env.NETLIFY_AUTH_TOKEN),
     modes          : {},
   };
-  for (const mode of ['auto', 'token']) {
+  for (const mode of MODES) {
     try {
-      const store = makeStore(mode);
-      if (!store) { out.modes[mode] = 'skip (env tidak lengkap)'; continue; }
+      const store = makeStore(mode, event);
+      if (!store) { out.modes[mode] = 'skip (kredensial tidak tersedia)'; continue; }
       await store.get('__diag__', { type: 'text' });   // null kalau belum ada = OK
       out.modes[mode] = 'ok';
     } catch (e) {
@@ -85,14 +101,14 @@ exports.handler = async (event) => {
     // ── GET ──────────────────────────────────────────────────────────
     if (event.httpMethod === 'GET') {
       if (event.queryStringParameters?.diag) {
-        const diag = await diagnose();
+        const diag = await diagnose(event);
         return { statusCode: 200, headers: HEADERS, body: JSON.stringify(diag) };
       }
       const id = event.queryStringParameters?.id;
       if (!id) {
         return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'id wajib ada' }) };
       }
-      const data = await withStore(s => s.get(id, { type: 'json' }));
+      const data = await withStore(event, s => s.get(id, { type: 'json' }));
       return {
         statusCode: 200,
         headers   : HEADERS,
@@ -107,7 +123,7 @@ exports.handler = async (event) => {
       if (!id || !Array.isArray(localStores)) {
         return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'id dan localStores wajib ada' }) };
       }
-      await withStore(s => s.setJSON(id, localStores));
+      await withStore(event, s => s.setJSON(id, localStores));
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true, count: localStores.length }) };
     }
 
@@ -115,7 +131,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'DELETE') {
       const id = event.queryStringParameters?.id;
       if (!id) return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'id wajib ada' }) };
-      await withStore(s => s.delete(id));
+      await withStore(event, s => s.delete(id));
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
     }
 
