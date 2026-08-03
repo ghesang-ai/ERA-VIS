@@ -119,6 +119,49 @@ function normalizeKodeStore(raw) {
 }
 
 
+// ── VALIDASI KODE TOKO ─────────────────────────────────────────────
+/**
+ * Pola kode toko (plant/SAP code): 1–2 huruf + 2–4 angka, opsional 1 huruf.
+ * Valid  : E879, M163, F022, S044
+ * Invalid: "NAMA STORE", "ALAMAT", "QTY", "TOTAL", "E052 32-JKT" (kode account vendor)
+ */
+const RE_PLANT_CODE = /^[A-Z]{1,2}\d{2,4}[A-Z]?$/;
+
+/**
+ * Ambil kode toko yang sah dari satu sel Excel.
+ * Return '' kalau sel itu bukan kode toko — dipakai untuk membuang baris
+ * non-toko, mis. label form vertikal di sheet "TAG ALAMAT"
+ * ("KODE STORE : M048" → kolom label ikut terbaca sebagai kode).
+ */
+function extractPlantCode(raw) {
+  const s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim().toUpperCase();
+  if (!s) return '';
+  if (RE_PLANT_CODE.test(s)) return s;
+  // "S044 - SES 2 ITC ROXY MAS" → S044 (kode + pemisah + nama toko)
+  const m = s.match(/^([A-Z]{1,2}\d{2,4}[A-Z]?)\s*[-–—/]\s*\S/);
+  return m ? m[1] : '';
+}
+
+/**
+ * Buang baris yang bukan data toko + duplikat kode dari array store objects.
+ * Selain dipakai saat parsing Excel, ini juga membersihkan data lama yang
+ * terlanjur tersimpan di localStorage/cloud tanpa perlu upload ulang.
+ */
+function sanitizeStores(stores) {
+  if (!Array.isArray(stores)) return [];
+  const seen = new Set();
+  const out  = [];
+  stores.forEach(s => {
+    if (!s) return;
+    const code = extractPlantCode(s.plantCode);
+    if (!code || seen.has(code)) return;
+    seen.add(code);
+    out.push(s.plantCode === code ? s : { ...s, plantCode: code });
+  });
+  return out;
+}
+
+
 // ── PARSE IMPORTING (form responses) ──────────────────────────────
 /**
  * Parse rows[][] dari sheet IMPORTING menjadi array submission objects.
@@ -189,7 +232,7 @@ async function ensureLocalStores(cid) {
   const c = campaigns.find(x => x.id === cid);
   if (!c) return { ok: false, stores: [], reason: 'not-found' };
   if (c.localStores && c.localStores.length) {
-    return { ok: true, stores: c.localStores, reason: 'local' };
+    return { ok: true, stores: sanitizeStores(c.localStores), reason: 'local' };
   }
 
   let res;
@@ -208,8 +251,8 @@ async function ensureLocalStores(cid) {
   }
 
   let pulled;
-  try { pulled = await res.json(); } catch (_) { return { ok: false, stores: [], reason: 'error' }; }
-  if (!Array.isArray(pulled) || !pulled.length) {
+  try { pulled = sanitizeStores(await res.json()); } catch (_) { return { ok: false, stores: [], reason: 'error' }; }
+  if (!pulled.length) {
     return { ok: false, stores: [], reason: 'empty' };
   }
 
@@ -242,6 +285,7 @@ function toastLocalStoresError(result) {
  * data submission (IMPORTING sheet) untuk menentukan status DONE/NOT DONE.
  */
 function mergeStatusFromImport(stores, importData) {
+  stores = sanitizeStores(stores); // buang baris non-toko dari data lama
   const submitted = {};
   importData.forEach(r => {
     const k = normalizeKodeStore(r.kodeStore);
@@ -260,22 +304,53 @@ function mergeStatusFromImport(stores, importData) {
  * Parse rows[][] dari satu sheet Excel (via SheetJS) menjadi array store objects.
  * Mencari header row yang mengandung kata "plant", "kode", atau "code".
  */
-function parseExcelStores(rows) {
-  let headerIdx = 0;
-  let colMap = {};
+const STORE_HEADER_KEYWORDS = [
+  'plant code', 'plant desc', 'sap code', 'store name', 'nama toko', 'nama store',
+  'kode toko', 'kode store', 'region', 'kota', 'city', 'nomor resi', 'no resi',
+  'resi', 'qty', 'store leader', 'store address', 'alamat',
+];
 
-  for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    const joined = rows[i].map(c => String(c || '').trim().toLowerCase()).join(' ');
-    if (joined.includes('plant') || joined.includes('kode') || joined.includes('code') ||
-        joined.includes('sap') || joined.includes('store name') || joined.includes('nama toko')) {
-      headerIdx = i;
-      rows[i].forEach((h, idx) => {
-        // Normalize header: strip newlines and extra spaces
-        colMap[String(h || '').replace(/[\r\n]+/g, ' ').trim().toLowerCase()] = idx;
-      });
-      break;
+// Kolom yang namanya mirip kode toko tapi bukan (kode account vendor, dll)
+const NON_STORE_CODE_HEADERS = ['kode account', 'account', 'kode barang', 'kode vendor'];
+
+function parseExcelStores(rows) {
+  const norm = h => String(h == null ? '' : h)
+    .replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const buildColMap = row => {
+    const map = {};
+    row.forEach((h, idx) => {
+      const k = norm(h);
+      if (k && map[k] === undefined) map[k] = idx;
+    });
+    return map;
+  };
+
+  let headerIdx = -1;
+  let colMap    = {};
+
+  // 1) Header "beneran": minimal 2 sel cocok nama kolom tabel toko.
+  //    Syarat 2 sel penting agar sheet form vertikal (mis. "TAG ALAMAT" yang
+  //    berisi "KODE STORE : M048" per baris) tidak dikira tabel toko.
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const cells = (rows[i] || []).map(norm);
+    const hits  = cells.filter(c => c && STORE_HEADER_KEYWORDS.some(k => c.includes(k))).length;
+    if (hits >= 2) { headerIdx = i; colMap = buildColMap(rows[i]); break; }
+  }
+
+  // 2) Fallback longgar (format lama): cukup satu kata kunci kode.
+  //    Baris sampahnya tetap tersaring oleh extractPlantCode() di bawah.
+  if (headerIdx < 0) {
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      const joined = (rows[i] || []).map(norm).join(' ');
+      if (joined.includes('plant') || joined.includes('kode') || joined.includes('code') ||
+          joined.includes('sap') || joined.includes('store name') || joined.includes('nama toko')) {
+        headerIdx = i; colMap = buildColMap(rows[i]); break;
+      }
     }
   }
+
+  if (headerIdx < 0) return [];
 
   const findCol = (...names) => {
     for (const n of names) {
@@ -283,14 +358,16 @@ function parseExcelStores(rows) {
     }
     // Partial/substring fallback
     for (const n of names) {
-      const key = Object.keys(colMap).find(k => k.includes(n));
+      const key = Object.keys(colMap).find(k => k.includes(n) && !NON_STORE_CODE_HEADERS.includes(k));
       if (key !== undefined) return colMap[key];
     }
     return -1;
   };
 
-  const iCode   = findCol('plant code', 'sap code', 'kode toko', 'kode', 'sap', 'code');
-  const iDesc   = findCol('plant desc', 'store name', 'nama toko', 'plant description', 'desc');
+  // 'site code' / 'site description' = format export SAP (kolom "Company Code"
+  // ikut ada di sheet itu, jadi harus dicoba sebelum kata kunci generik 'code')
+  const iCode   = findCol('plant code', 'sap code', 'site code', 'kode toko', 'kode store', 'kode', 'sap', 'code');
+  const iDesc   = findCol('plant desc', 'store name', 'nama toko', 'site description', 'plant description', 'desc');
   const iRegion = findCol('region');
   const iCity   = findCol('kota', 'city', 'kab/kota');
   const iNo     = findCol('no.', 'no');
@@ -299,8 +376,10 @@ function parseExcelStores(rows) {
   return rows
     .slice(headerIdx + 1)
     .map(r => {
-      const code = iCode >= 0 ? String(r[iCode] || '').trim() : '';
-      if (!code || code.toLowerCase() === 'plant code') return null;
+      // Hanya baris dengan kode toko valid yang dianggap data toko —
+      // baris label form, subtotal, atau catatan otomatis terbuang.
+      const code = iCode >= 0 ? extractPlantCode(r[iCode]) : '';
+      if (!code) return null;
       return {
         no          : iNo     >= 0 ? r[iNo]     || '' : '',
         plantCode   : code,

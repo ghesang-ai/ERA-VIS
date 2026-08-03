@@ -776,10 +776,10 @@ Link form: {link_form}</textarea></div>
 
 <!-- ===== JS FILES ===== -->
 <script src="js/config.js"></script>
-<script src="js/api.js?v=20260406"></script>
+<script src="js/api.js?v=20260803"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/stores.js?v=20260406"></script>
-<script src="js/campaigns.js"></script>
+<script src="js/campaigns.js?v=20260803"></script>
 <script src="js/sampleData.js"></script>
 <script src="js/slideGenerator.js"></script>
 <script src="js/reportExporter.js"></script>
@@ -893,6 +893,9 @@ if (!campaigns.length) {
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────
+// Buang baris non-toko dari data upload lama (typeof-guard: kalau campaigns.js
+// masih versi cache lama, boot tetap jalan)
+if (typeof cleanupStoredCampaigns === 'function') cleanupStoredCampaigns();
 populateAllSelects();
 renderCampaignList();
 loadSettings();

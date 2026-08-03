@@ -405,11 +405,11 @@ async function saveCampaign() {
       const checked = [...document.querySelectorAll('.sheet-cb:checked')].map(cb => cb.value);
       if (!checked.length) { toast('Pilih minimal 1 sheet', 'error'); return; }
       const all = getStoresFromSheets(checked);
-      localStores = [...new Map(all.map(s => [s.plantCode, s])).values()];
+      localStores = sanitizeStores(all);
       if (!localStores.length) { toast('Tidak ada data toko di sheet yang dipilih', 'error'); return; }
     } else if (eid) {
       const existing = campaigns.find(x => x.id === eid);
-      localStores    = existing ? existing.localStores : null;
+      localStores    = existing ? sanitizeStores(existing.localStores) : null;
 
       // localStores belum ada di browser ini — coba pull dari cloud dulu
       if ((!localStores || !localStores.length) && eid) {
@@ -417,8 +417,8 @@ async function saveCampaign() {
         try {
           const res = await fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(eid)}`);
           if (res.ok) {
-            const pulled = await res.json();
-            if (Array.isArray(pulled) && pulled.length) {
+            const pulled = sanitizeStores(await res.json());
+            if (pulled.length) {
               localStores = pulled;
               const idx = campaigns.findIndex(x => x.id === eid);
               if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores };
@@ -512,6 +512,8 @@ async function syncCampaignsFromCloud() {
     if (localOnly.length > 0) pushCampaignsToCloud();
     // Ambil localStores dari Netlify Blobs untuk campaign yang belum punya
     await pullLocalStoresFromCloud();
+    // Buang sisa baris non-toko dari data lama (lokal maupun cloud)
+    await cleanupStoredCampaigns();
     populateAllSelects();
     renderCampaignList();
     return true;
@@ -582,8 +584,8 @@ async function pullLocalStoresFromCloud() {
         console.warn('[ERA-VIS] localStores pull gagal untuk', c.id, 'HTTP', res.status);
         return;
       }
-      const stores = await res.json();
-      if (Array.isArray(stores) && stores.length) {
+      const stores = sanitizeStores(await res.json());
+      if (stores.length) {
         const idx = campaigns.findIndex(x => x.id === c.id);
         if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores: stores };
       }
@@ -597,6 +599,52 @@ async function pullLocalStoresFromCloud() {
   // exception-nya membatalkan sisa proses sync.
   try { save(SK.campaigns, campaigns); }
   catch (e) { console.warn('[ERA-VIS] localStorage penuh saat cache localStores:', e.message); }
+}
+
+// ── BERSIHKAN DATA TOKO LAMA ───────────────────────────────────────
+// Upload Excel versi lama bisa ikut menyimpan baris non-toko (label form
+// vertikal dari sheet "TAG ALAMAT" / "FORM": NAMA STORE, ALAMAT, QTY, dst).
+// Bersihkan campaign yang sudah tersimpan supaya rapi tanpa upload ulang,
+// lalu perbaiki juga salinannya di cloud agar device lain ikut bersih.
+async function cleanupStoredCampaigns() {
+  const cleanedIds = [];
+
+  campaigns = campaigns.map(c => {
+    if (c.mode !== 'excel' || !Array.isArray(c.localStores) || !c.localStores.length) return c;
+    const clean = sanitizeStores(c.localStores);
+    if (clean.length === c.localStores.length) return c;
+    console.log(`[ERA-VIS] ${c.localStores.length - clean.length} baris non-toko dibuang dari "${c.name}"`);
+    cleanedIds.push(c.id);
+    return { ...c, localStores: clean };
+  });
+
+  if (!cleanedIds.length) return 0;
+
+  try { save(SK.campaigns, campaigns); }
+  catch (e) { console.warn('[ERA-VIS] localStorage penuh saat simpan hasil cleanup:', e.message); }
+
+  await Promise.all(cleanedIds.map(async id => {
+    const c = campaigns.find(x => x.id === id);
+    if (!c) return;
+    const minStores = c.localStores.map(s => ({
+      plantCode: s.plantCode,
+      plantDesc: s.plantDesc,
+      region   : s.region,
+      city     : s.city,
+      nomorResi: s.nomorResi || '',
+    }));
+    try {
+      await fetch(STORE_SYNC_PROXY, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ id, localStores: minStores }),
+      });
+    } catch (e) {
+      console.warn('[ERA-VIS] push hasil cleanup gagal untuk', id, e.message);
+    }
+  }));
+
+  return cleanedIds.length;
 }
 
 // Force push semua campaign lokal ke cloud (untuk recovery / debug)
