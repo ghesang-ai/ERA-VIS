@@ -987,6 +987,17 @@ addLog('system', 'ERA-VIS AI v2.0 started');
       groups[m].push(c);
     });
 
+    // Sort groups chronologically (oldest → newest), "Tanpa Deadline" last
+    order.sort((a, b) => {
+      if (a === 'Tanpa Deadline') return 1;
+      if (b === 'Tanpa Deadline') return -1;
+      const [an, ay] = a.split(' ');
+      const [bn, by] = b.split(' ');
+      const ak = parseInt(ay) * 12 + MONTH_ORDER.indexOf(an);
+      const bk = parseInt(by) * 12 + MONTH_ORDER.indexOf(bn);
+      return ak - bk;
+    });
+
     let html = '';
     order.forEach(month => {
       const items = groups[month];
