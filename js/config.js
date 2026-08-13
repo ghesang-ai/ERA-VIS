@@ -121,6 +121,7 @@ const PAGE_TITLES = {
   insights       : 'AI Insights',
   logs           : 'Activity Log',
   campaigns      : 'Campaigns',
+  fbe            : 'Festival Belanja Erafone',
   settings       : 'Settings',
   guide          : 'Setup Guide',
 };
@@ -136,8 +137,24 @@ const PAGE_SUBLABELS = {
   insights       : 'AI Analysis',
   logs           : 'Activity History',
   campaigns      : 'Kelola Campaign',
+  fbe            : 'Multi-Material Visibility Tracking',
   settings       : 'Konfigurasi',
   guide          : 'Panduan Setup',
+};
+
+
+// ── FBE (Festival Belanja Erafone) MATERIALS ──────────────────────
+// formLabel = lowercase phrase used to match this material's
+// "Status ..." / "Foto ..." columns in the confirmation Google Form
+// response sheet (see js/fbeImport.js parseFbeConfirmation()).
+const FBE_MATERIALS = {
+  EASEL_POSTER:       { label: 'Easel & Poster',         formLabel: 'easel & poster' },
+  HANGING_GATE:       { label: 'Hanging Gate',            formLabel: 'hanging gate' },
+  HANGING_MOBILE_1:   { label: 'Hanging Mobile Desain 1', formLabel: 'hanging mobile desain 1' },
+  HANGING_MOBILE_2:   { label: 'Hanging Mobile Desain 2', formLabel: 'hanging mobile desain 2' },
+  STICKER_KACA:       { label: 'Sticker Kaca',            formLabel: 'sticker kaca' },
+  FRAME_HANGING_LFD:  { label: 'Frame Hanging LFD',       formLabel: 'frame hanging lfd' },
+  FRAME_STANDING_LFD: { label: 'Frame Standing LFD',      formLabel: 'frame standing lfd' },
 };
 
 
