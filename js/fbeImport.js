@@ -30,6 +30,16 @@ function _fbeColMap(headerRow) {
   return map;
 }
 
+// Exact-match pass dulu, baru fallback substring (pass kedua) kalau tidak
+// ada exact match. Ini aman untuk 5 file FBE asli karena headernya semua
+// kata tunggal ("Resi", "Status", dst) sehingga selalu kena exact-match
+// di pass pertama. TAPI kalau ada pemanggil baru dengan header multi-kata
+// (mis. "Status Resi" & "No Resi" di sheet yang sama), fallback substring
+// di sini bisa nyasar — 'resi' dan 'status' bisa sama-sama match ke kolom
+// yang sama karena substring-nya pakai OR, bukan match paling spesifik.
+// Pemanggil semacam itu (lihat parseFbeConfirmation di Task 3) sebaiknya
+// TIDAK memakai _fbeFindCol, melainkan AND manual sendiri, mis.
+// `header.includes('status') && header.includes(phrase)`.
 function _fbeFindCol(colMap, ...names) {
   for (const n of names) if (colMap[n] !== undefined) return colMap[n];
   for (const n of names) {
