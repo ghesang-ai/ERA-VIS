@@ -195,6 +195,61 @@ function parseFbeConfirmation(rows) {
   return out;
 }
 
+// ── JOIN: alokasi master ⋈ konfirmasi → status per toko ────────────
+// Kelompokkan baris master long-format berdasarkan (toko, kategori
+// materi) — BUKAN per baris sub-desain, lihat catatan desain di atas —
+// lalu tandai tiap materi terkonfirmasi kalau ada konfirmasi Terpasang
+// yang cocok. Denominator scorePct adalah jumlah kategori materi.
+function computeFbeStoreStatus(masterRows, confirmationRows) {
+  const byStore = {};
+  masterRows.forEach(m => {
+    if (!byStore[m.plantCode]) {
+      byStore[m.plantCode] = {
+        plantCode: m.plantCode, namaToko: m.namaToko, region: m.region, kota: m.kota,
+        materialsByType: {},
+      };
+    }
+    const store = byStore[m.plantCode];
+    if (!store.materialsByType[m.jenisMateri]) {
+      store.materialsByType[m.jenisMateri] = {
+        jenisMateri: m.jenisMateri,
+        label      : (FBE_MATERIALS[m.jenisMateri] || {}).label || m.jenisMateri,
+        details    : [],
+        confirmed  : false,
+        tanggal    : '',
+        linkFoto   : '',
+      };
+    }
+    store.materialsByType[m.jenisMateri].details.push({
+      subDesain: m.subDesain || '', qty: m.qty || 1, noResi: m.noResi || '',
+    });
+  });
+
+  const confirmByKey = {};
+  confirmationRows.forEach(c => { confirmByKey[c.plantCode + '|' + c.jenisMateri] = c; });
+
+  const result = Object.values(byStore).map(store => {
+    const materials = Object.values(store.materialsByType).map(mat => {
+      const c = confirmByKey[store.plantCode + '|' + mat.jenisMateri];
+      if (c && c.status === 'Terpasang') {
+        mat.confirmed = true;
+        mat.tanggal   = c.tanggal;
+        mat.linkFoto  = c.linkFoto;
+      }
+      return mat;
+    });
+    const totalCount = materials.length;
+    const doneCount  = materials.filter(m => m.confirmed).length;
+    return {
+      plantCode: store.plantCode, namaToko: store.namaToko, region: store.region, kota: store.kota,
+      materials, totalCount, doneCount,
+      scorePct: totalCount > 0 ? Math.round(doneCount / totalCount * 100) : 0,
+    };
+  });
+
+  return result.sort((a, b) => a.plantCode.localeCompare(b.plantCode));
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile, parseFbeConfirmation };
+  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile, parseFbeConfirmation, computeFbeStoreStatus };
 }
