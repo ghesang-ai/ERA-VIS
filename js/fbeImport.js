@@ -204,6 +204,9 @@ function computeFbeStoreStatus(masterRows, confirmationRows) {
   const byStore = {};
   masterRows.forEach(m => {
     if (!byStore[m.plantCode]) {
+      // Asumsi: namaToko/region/kota konsisten untuk plantCode yang sama
+      // di semua baris master (biasanya dari file berbeda) — kalau tidak,
+      // nilai dari baris pertama yang ditemukan yang dipakai secara diam-diam.
       byStore[m.plantCode] = {
         plantCode: m.plantCode, namaToko: m.namaToko, region: m.region, kota: m.kota,
         materialsByType: {},
