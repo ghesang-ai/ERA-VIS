@@ -915,7 +915,7 @@ syncCampaignsFromCloud().then(result => {
   if (typeof pushMissingLocalStores === 'function') pushMissingLocalStores();
 });
 
-const activeCampaign = campaigns.find(c => c.status !== 'ended');
+const activeCampaign = campaigns.find(c => c.status !== 'ended' && !c.fbeMode);
 if (activeCampaign) {
   document.getElementById('dash-campaign-select').value = activeCampaign.id;
   if (typeof cpSyncTriggerText === 'function') cpSyncTriggerText('dash');
@@ -969,7 +969,7 @@ addLog('system', 'ERA-VIS AI v2.0 started');
     const query = (q || '').trim().toLowerCase();
 
     const filtered = (typeof campaigns !== 'undefined' ? campaigns : []).filter(c =>
-      !query || c.name.toLowerCase().includes(query)
+      !c.fbeMode && (!query || c.name.toLowerCase().includes(query))
     );
 
     if (!filtered.length) {
