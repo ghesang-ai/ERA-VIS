@@ -236,7 +236,12 @@ function populateAllSelects() {
     if (!s) return;
     const v = s.value;
     s.innerHTML = '<option value="">-- Pilih Campaign --</option>';
-    campaigns.forEach(c => {
+    // Campaign FBE pakai array localStores long-format (banyak baris
+    // per plantCode) yang bertentangan dengan asumsi "1 baris = 1 toko"
+    // di sanitizeStores()/mergeStatusFromImport() yang dipakai semua
+    // halaman di bawah ini — FBE dapat halaman sendiri (js/fbe.js).
+    // Lihat plan Task 5.
+    campaigns.filter(c => !c.fbeMode).forEach(c => {
       s.innerHTML += `<option value="${c.id}">${esc(c.name)}${c.status === 'ended' ? ' (Ended)' : ''}</option>`;
     });
     s.value = v;
