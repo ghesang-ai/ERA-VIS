@@ -144,9 +144,9 @@ const PAGE_SUBLABELS = {
 
 
 // ── FBE (Festival Belanja Erafone) MATERIALS ──────────────────────
-// formLabel = lowercase phrase used to match this material's
-// "Status ..." / "Foto ..." columns in the confirmation Google Form
-// response sheet (see js/fbeImport.js parseFbeConfirmation()).
+// formLabel = frasa lowercase yang dipakai untuk mencocokkan kolom
+// "Status ..." / "Foto ..." materi ini di sheet respons Google Form
+// konfirmasi (lihat js/fbeImport.js parseFbeConfirmation()).
 const FBE_MATERIALS = {
   EASEL_POSTER:       { label: 'Easel & Poster',         formLabel: 'easel & poster' },
   HANGING_GATE:       { label: 'Hanging Gate',            formLabel: 'hanging gate' },
