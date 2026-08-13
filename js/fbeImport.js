@@ -151,6 +151,50 @@ function parseFbeStickerKacaFile(rows) {
   return out;
 }
 
+// ── SHEET KONFIRMASI (respons Google Form) ─────────────────────────
+// Form-nya berbentuk wide (1 submission = 1 toko, 1 pasang kolom
+// Status+Foto per materi — Store Leader hanya isi yang berlaku). Ini
+// men-transpose-nya jadi long format yang sama seperti baris master:
+// 1 baris output per (toko, materi) yang memang punya link foto.
+function parseFbeConfirmation(rows) {
+  if (!rows || rows.length < 2) return [];
+  const header = rows[0].map(_fbeNorm);
+  const iTime = header.findIndex(h => h.includes('timestamp'));
+  const iCode = header.findIndex(h => h.includes('kode toko') || h.includes('kode store'));
+  if (iCode < 0) return [];
+
+  const materialCols = {};
+  Object.keys(FBE_MATERIALS).forEach(key => {
+    const phrase = FBE_MATERIALS[key].formLabel;
+    materialCols[key] = {
+      iFoto  : header.findIndex(h => h.includes('foto')   && h.includes(phrase)),
+      iStatus: header.findIndex(h => h.includes('status') && h.includes(phrase)),
+    };
+  });
+
+  const out = [];
+  rows.slice(1).forEach(r => {
+    const code = extractPlantCode(r[iCode]);
+    if (!code) return;
+    const timestamp = iTime >= 0 ? String(r[iTime] || '').trim() : '';
+
+    Object.keys(materialCols).forEach(key => {
+      const { iFoto, iStatus } = materialCols[key];
+      const linkFoto = iFoto >= 0 ? String(r[iFoto] || '').trim() : '';
+      if (!linkFoto) return; // tidak ada foto ter-upload = belum terkonfirmasi untuk materi ini
+      const statusText = iStatus >= 0 ? String(r[iStatus] || '').trim().toLowerCase() : '';
+      out.push({
+        plantCode  : code,
+        jenisMateri: key,
+        status     : statusText.includes('belum') ? 'Belum Terpasang' : 'Terpasang',
+        tanggal    : timestamp,
+        linkFoto,
+      });
+    });
+  });
+  return out;
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile };
+  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile, parseFbeConfirmation };
 }
