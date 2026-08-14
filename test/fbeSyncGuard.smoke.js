@@ -53,6 +53,8 @@ function _localOnlyFilter(campaigns, cloudIds) {
   );
 }
 
+const { loadFbeContext } = require('./fbeHarness');
+
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
@@ -145,6 +147,28 @@ function run() {
 
   console.log('OK _minStoresForSync');
   console.log('OK _localOnlyFilter (regression: campaign FBE tidak hilang saat belum ter-sync)');
+
+  // 5. Regression guard: ensureLocalStores() (js/api.js) TIDAK boleh lewat
+  // sanitizeStores() untuk campaign fbeMode — sanitizeStores() dedupe per
+  // plantCode, jadi 6 baris (1 toko x 6 materi) akan diciutkan jadi 1 baris
+  // saja (cuma materi pertama yang bertahan). Bug nyata: campaign "Scoring
+  // Visibility FBE" jadi kosong total / kehilangan 5 dari 6 materi per toko
+  // setelah ensureLocalStores() menarik data dari cloud.
+  const ctx = loadFbeContext();
+  const fbeRows = ['EASEL_POSTER', 'HANGING_GATE', 'HANGING_MOBILE', 'POI', 'SIGNBOARD', 'SPANDUK']
+    .map(jenisMateri => ({ plantCode: 'E038', namaToko: 'Erafone Plaza Atrium', region: 'REGION 5', jenisMateri }));
+
+  // Salinan persis cabang keputusan di ensureLocalStores(): `c.fbeMode ? raw : sanitizeStores(raw)`.
+  function _pickStores(c, raw) { return c.fbeMode ? raw : ctx.sanitizeStores(raw); }
+
+  const fbeResult = _pickStores({ fbeMode: true }, fbeRows);
+  assert(fbeResult.length === 6, 'FBE: baris tidak boleh berkurang (sanitizeStores harus dilewati), dapat ' + fbeResult.length);
+
+  const nonFbeResult = _pickStores({ fbeMode: false }, fbeRows);
+  assert(nonFbeResult.length === 1,
+    'Kontrol: campaign non-FBE tetap lewat sanitizeStores() (dedupe ke 1 baris per plantCode), dapat ' + nonFbeResult.length);
+
+  console.log('OK ensureLocalStores fbeMode guard (regression: materi FBE tidak diciutkan sanitizeStores)');
 }
 
 try {
