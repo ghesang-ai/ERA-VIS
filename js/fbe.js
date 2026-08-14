@@ -215,6 +215,14 @@ function exportFbeExcel() {
 }
 
 // ── REMINDER (per materi, bukan per toko) ────────────────────────────
+// Tiap grup materi (lihat FBE_CONFIRM_GROUPS) punya Google Form sendiri,
+// jadi reminder harus kirim link form yang sesuai grup materi tsb — bukan
+// 1 link generik untuk semua materi.
+function _fbeFormLinkForMaterial(campaign, materialKey) {
+  const group = Object.keys(FBE_CONFIRM_GROUPS).find(g => FBE_CONFIRM_GROUPS[g].materials.includes(materialKey));
+  return (group && campaign.formLinks && campaign.formLinks[group]) || '';
+}
+
 function buildFbeMsg(storeName, plantCode, materialLabel, campaignName, formLink) {
   return `Halo Store Leader *${storeName}* (${plantCode}),\n\n` +
     `Materi *${materialLabel}* untuk campaign *${campaignName}* belum terkonfirmasi terpasang.\n` +
@@ -239,7 +247,8 @@ async function scanAndRemindFbe() {
   let sent = 0;
   const cid = fbeCurrentCampaign.id;
   for (const p of pending) {
-    const msg = buildFbeMsg(p.store.namaToko, p.store.plantCode, p.material.label, fbeCurrentCampaign.name, fbeCurrentCampaign.formLink || '');
+    const formLink = _fbeFormLinkForMaterial(fbeCurrentCampaign, p.material.jenisMateri);
+    const msg = buildFbeMsg(p.store.namaToko, p.store.plantCode, p.material.label, fbeCurrentCampaign.name, formLink);
     const ok  = await sendViaFonnte(p.sl.phone, msg, settings);
     if (ok) {
       sent++;
