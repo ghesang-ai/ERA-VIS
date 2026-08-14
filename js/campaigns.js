@@ -280,6 +280,10 @@ function openAddCampaign() {
     const fi = document.getElementById('fbe-file-' + key);
     if (fi) fi.value = '';
   });
+  Object.keys(FBE_CONFIRM_GROUPS).forEach(group => {
+    const el = document.getElementById('inp-confirm-' + group);
+    if (el) el.value = '';
+  });
   document.getElementById('dropzone').className          = 'dropzone';
   document.getElementById('dropzone-label').textContent  = 'Klik atau drag & drop file Excel di sini';
   document.getElementById('excel-sheet-select').style.display = 'none';
@@ -306,8 +310,10 @@ function openEditCampaign(id) {
   if (c.fbeMode) {
     switchCampaignMode('fbe');
     _fbeFiles = {};
-    document.getElementById('inp-response-sheet-fbe').value = c.responseSheetId || '';
-    document.getElementById('inp-import-sheet-fbe').value   = c.importSheet || 'Form Responses 1';
+    Object.keys(FBE_CONFIRM_GROUPS).forEach(group => {
+      const el = document.getElementById('inp-confirm-' + group);
+      if (el) el.value = (c.confirmSheets && c.confirmSheets[group] && c.confirmSheets[group].sheetId) || '';
+    });
     (c.materials || []).forEach(key => {
       const rowsForMaterial = (c.localStores || []).filter(r => r.jenisMateri === key || (key === 'STICKER_KACA' && ['STICKER_KACA','FRAME_HANGING_LFD','FRAME_STANDING_LFD'].includes(r.jenisMateri)));
       const el = document.getElementById('fbe-status-' + key);
@@ -467,9 +473,13 @@ async function saveCampaign() {
   let obj = {};
 
   if (mode === 'fbe') {
-    const respRaw = document.getElementById('inp-response-sheet-fbe').value.trim();
-    const respId  = extractSheetId(respRaw);
-    const is      = document.getElementById('inp-import-sheet-fbe').value.trim() || 'Form Responses 1';
+    // Realita lapangan: 5 Google Form/sheet konfirmasi terpisah per grup
+    // materi (bukan 1 form gabungan) — lihat FBE_CONFIRM_GROUPS.
+    const confirmSheets = {};
+    Object.keys(FBE_CONFIRM_GROUPS).forEach(group => {
+      const raw = (document.getElementById('inp-confirm-' + group).value || '').trim();
+      if (raw) confirmSheets[group] = { sheetId: extractSheetId(raw), sheetName: DEFAULT_FBE_CONFIRM_SHEET_NAME };
+    });
 
     let localStores = [];
     const materials = [];
@@ -492,7 +502,7 @@ async function saveCampaign() {
 
     if (!localStores.length) { toast('Upload minimal 1 file materi FBE', 'error'); return; }
 
-    obj = { mode:'excel', fbeMode:true, localStores, materials, responseSheetId:respId, importSheet:is, spreadsheetId:respId, masterSheet:'', headerRow: DEFAULT_HEADER_ROW };
+    obj = { mode:'excel', fbeMode:true, localStores, materials, confirmSheets, masterSheet:'', headerRow: DEFAULT_HEADER_ROW };
 
   } else if (mode === 'excel') {
     const respRaw = document.getElementById('inp-response-sheet').value.trim();

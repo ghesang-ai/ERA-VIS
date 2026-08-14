@@ -28,13 +28,23 @@ async function loadFbePage(cid) {
       fbeCurrentCampaign = campaigns.find(x => x.id === cid) || c;
     }
 
-    let confirmRows = [];
-    if (fbeCurrentCampaign.responseSheetId) {
-      try {
-        const rows = await fetchSheet(fbeCurrentCampaign.responseSheetId, fbeCurrentCampaign.importSheet || 'Form Responses 1');
-        confirmRows = parseFbeConfirmation(rows);
-      } catch (e) { console.warn('[FBE] fetch konfirmasi gagal', e); }
-    }
+    // Realita lapangan: 5 sheet konfirmasi terpisah per grup materi
+    // (lihat FBE_CONFIRM_GROUPS) — fetch semuanya paralel, gabung hasilnya.
+    const confirmSheets = fbeCurrentCampaign.confirmSheets || {};
+    const confirmResults = await Promise.all(
+      Object.keys(FBE_CONFIRM_GROUPS).map(async group => {
+        const sheetCfg = confirmSheets[group];
+        if (!sheetCfg || !sheetCfg.sheetId) return [];
+        try {
+          const rows = await fetchSheet(sheetCfg.sheetId, sheetCfg.sheetName || DEFAULT_FBE_CONFIRM_SHEET_NAME);
+          return parseFbeSimpleConfirmation(rows, FBE_CONFIRM_GROUPS[group].materials);
+        } catch (e) {
+          console.warn('[FBE] fetch konfirmasi gagal untuk grup', group, e);
+          return [];
+        }
+      })
+    );
+    const confirmRows = confirmResults.flat();
 
     fbeStoreStatus = computeFbeStoreStatus(fbeCurrentCampaign.localStores, confirmRows);
 
