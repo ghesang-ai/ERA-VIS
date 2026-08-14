@@ -24,7 +24,17 @@ async function loadFbePage(cid) {
     if (!c.localStores || !c.localStores.length) {
       toast('Mengambil data toko FBE dari cloud...', 'info');
       const pulled = await ensureLocalStores(cid);
-      if (!pulled.ok) { toastLocalStoresError(pulled); return; }
+      if (!pulled.ok) {
+        // Pesan default ensureLocalStores() ("upload Excel di edit campaign")
+        // tidak cocok untuk campaign FBE — campaign FBE biasa pakai upload
+        // per-slot materi, sedangkan Scoring sama sekali tidak ada upload
+        // Excel (datanya diturunkan otomatis dari campaign FBE utama).
+        const emptyMsg = c.scoringMode
+          ? 'Data toko belum ada — edit & simpan ulang campaign FBE utama untuk generate ulang, lalu klik Refresh di sini'
+          : 'Data toko FBE belum ada di cloud — upload ulang materi di Edit Campaign';
+        toastLocalStoresError(pulled, emptyMsg);
+        return;
+      }
       fbeCurrentCampaign = campaigns.find(x => x.id === cid) || c;
     }
 
