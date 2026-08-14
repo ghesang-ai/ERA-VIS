@@ -485,10 +485,10 @@ async function handleFbeMaterialFile(slotKey, file) {
     }
     _fbeFiles[slotKey] = { name: file.name, rows: parsed };
     const uniqueStores = new Set(parsed.map(r => r.plantCode)).size;
-    const warning = droppedCount > 0
-      ? ` <span style="color:var(--gold)">(&#x26A0; ${droppedCount} baris materi lain di file ini diabaikan — sepertinya file gabungan lama, pastikan upload file per-materi yang benar)</span>`
+    const note = droppedCount > 0
+      ? ` <span style="color:var(--muted)">(materi lain di file ini otomatis dilewati, hanya diambil yang relevan untuk slot ini)</span>`
       : '';
-    _setFbeSlotStatus(slotKey, `<span style="color:var(--teal)">&#x2713; ${esc(file.name)} — ${uniqueStores} toko</span>${warning}`);
+    _setFbeSlotStatus(slotKey, `<span style="color:var(--teal)">&#x2713; ${esc(file.name)} — ${uniqueStores} toko</span>${note}`);
   } catch (err) {
     toast('Gagal baca Excel (' + slotKey + '): ' + err.message, 'error');
   }
