@@ -797,13 +797,7 @@ async function cleanupStoredCampaigns() {
   await Promise.all(cleanedIds.map(async id => {
     const c = campaigns.find(x => x.id === id);
     if (!c) return;
-    const minStores = c.localStores.map(s => ({
-      plantCode: s.plantCode,
-      plantDesc: s.plantDesc,
-      region   : s.region,
-      city     : s.city,
-      nomorResi: s.nomorResi || '',
-    }));
+    const minStores = _minStoresForSync(c);
     try {
       await fetch(STORE_SYNC_PROXY, {
         method : 'POST',
@@ -834,17 +828,7 @@ function shareCampaignsUrl() {
     // Minify localStores untuk Excel campaigns agar URL tidak terlalu panjang
     const data = campaigns.map(c => {
       if (c.mode === 'excel' && c.localStores && c.localStores.length) {
-        return {
-          ...c,
-          localStores: c.localStores.map(s => ({
-            plantCode : s.plantCode,
-            plantDesc : s.plantDesc,
-            region    : s.region,
-            city      : s.city,
-            status    : s.status || '',
-            nomorResi : s.nomorResi || '',
-          }))
-        };
+        return { ...c, localStores: _minStoresForSync(c) };
       }
       return c;
     });
