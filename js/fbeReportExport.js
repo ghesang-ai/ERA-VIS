@@ -26,7 +26,7 @@ function driveImgUrl(link) {
 function _fbeReportSectionHtml(material) {
   const hasPhoto = material.confirmed && material.linkFoto;
   const body = hasPhoto
-    ? `<img src="${driveImgUrl(material.linkFoto)}" crossorigin="anonymous">`
+    ? `<img src="${esc(driveImgUrl(material.linkFoto))}" crossorigin="anonymous">`
     : `<div class="fbe-report-missing">Belum Terpasang</div>`;
   return `
     <div class="fbe-report-section">
