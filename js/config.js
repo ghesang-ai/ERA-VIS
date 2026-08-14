@@ -147,27 +147,39 @@ const PAGE_SUBLABELS = {
 // formLabel = frasa lowercase yang dipakai untuk mencocokkan kolom
 // "Status ..." / "Foto ..." materi ini di sheet respons Google Form
 // konfirmasi (lihat js/fbeImport.js parseFbeConfirmation()).
+// Catatan: Hanging Mobile Desain 1 & 2 sengaja DIGABUNG jadi 1 key
+// (bukan 2 key terpisah seperti versi awal) — di lapangan, alokasinya
+// masih 2 file Excel terpisah, tapi konfirmasinya cuma 1 sheet/form
+// yang tidak membedakan desain, jadi tidak ada gunanya dibedakan di
+// sisi materi juga. Lihat FBE_CONFIRM_GROUPS di bawah.
 const FBE_MATERIALS = {
   EASEL_POSTER:       { label: 'Easel & Poster',         formLabel: 'easel & poster' },
   HANGING_GATE:       { label: 'Hanging Gate',            formLabel: 'hanging gate' },
-  HANGING_MOBILE_1:   { label: 'Hanging Mobile Desain 1', formLabel: 'hanging mobile desain 1' },
-  HANGING_MOBILE_2:   { label: 'Hanging Mobile Desain 2', formLabel: 'hanging mobile desain 2' },
+  HANGING_MOBILE:     { label: 'Hanging Mobile',          formLabel: 'hanging mobile' },
   STICKER_KACA:       { label: 'Sticker Kaca',            formLabel: 'sticker kaca' },
   FRAME_HANGING_LFD:  { label: 'Frame Hanging LFD',       formLabel: 'frame hanging lfd' },
   FRAME_STANDING_LFD: { label: 'Frame Standing LFD',      formLabel: 'frame standing lfd' },
 };
 
-// ── FBE GRUP KONFIRMASI (realita lapangan) ─────────────────────────
-// Store Leader submit dokumentasi lewat 5 Google Form terpisah per
-// grup materi ini — BUKAN 1 form gabungan dengan 7 kolom Status+Foto
-// seperti asumsi awal. Form "Hanging Mobile" dan "Frame Hanging LFD &
-// Frame Standing LFD" tidak membedakan sub-desain, jadi 1 submission
-// dianggap berlaku untuk semua materi di dalam grupnya (lihat
-// parseFbeSimpleConfirmation() di js/fbeImport.js).
+// ── FBE GRUP UPLOAD & KONFIRMASI (realita lapangan) ────────────────
+// Dipakai untuk 2 hal sekaligus (key-nya sama persis untuk keduanya):
+// 1. Slot upload file alokasi master di modal campaign — Hanging
+//    Mobile terima 2 file Excel sekaligus (Desain 1 + Desain 2, isinya
+//    digabung jadi materi "HANGING_MOBILE" yang sama); Sticker Kaca
+//    dan Frame Hanging/Standing LFD masing-masing file Excel sendiri
+//    (parseFbeStickerKacaFile() otomatis cuma mengambil kolom yang
+//    memang ada di file itu, jadi aman dipakai untuk kedua file ini).
+// 2. Grup Google Form/sheet konfirmasi — Store Leader submit
+//    dokumentasi lewat 5 form terpisah per grup ini, BUKAN 1 form
+//    gabungan dengan banyak kolom Status+Foto seperti asumsi awal.
+//    Form "Frame Hanging LFD & Frame Standing LFD" tidak membedakan
+//    keduanya, jadi 1 submission dianggap berlaku untuk kedua materi
+//    di grup itu (lihat parseFbeSimpleConfirmation() di
+//    js/fbeImport.js).
 const FBE_CONFIRM_GROUPS = {
   EASEL_POSTER  : { label: 'Easel & Poster',                          materials: ['EASEL_POSTER'] },
   HANGING_GATE  : { label: 'Hanging Gate',                             materials: ['HANGING_GATE'] },
-  HANGING_MOBILE: { label: 'Hanging Mobile (Desain 1 & 2)',            materials: ['HANGING_MOBILE_1', 'HANGING_MOBILE_2'] },
+  HANGING_MOBILE: { label: 'Hanging Mobile',                           materials: ['HANGING_MOBILE'] },
   FRAME_LFD     : { label: 'Frame Hanging LFD & Frame Standing LFD',   materials: ['FRAME_HANGING_LFD', 'FRAME_STANDING_LFD'] },
   STICKER_KACA  : { label: 'Sticker Kaca',                             materials: ['STICKER_KACA'] },
 };

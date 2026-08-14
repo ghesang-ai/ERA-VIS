@@ -32,18 +32,30 @@ function run() {
   assert(easelOut[0].linkFoto === 'https://drive.google.com/open?id=1YvlV_loQ8LetIHCwTDcJ1nJZ7ljQuYUH', 'linkFoto: ' + easelOut[0].linkFoto);
   assert(easelOut[0].tanggal === '14/08/2026 14:18:55', 'tanggal: ' + easelOut[0].tanggal);
 
-  // Fixture nyata dari sheet respons "Hanging Mobile" (gabungan Desain 1 & 2
-  // — 1 baris sumber harus fan-out jadi 2 baris konfirmasi, satu per key).
+  // Fixture nyata dari sheet respons "Hanging Mobile" — sekarang materi
+  // "HANGING_MOBILE" cuma 1 key (Desain 1 & 2 digabung di js/config.js,
+  // walau alokasinya tetap 2 file Excel terpisah), jadi 1:1, bukan fan-out.
   const hmRows = [
     ['Timestamp', 'KODE STORE', 'NAMA STORE', 'REGION ', 'SUBMIT DOKUMENTASI'],
     ['14/08/2026 14:19:47', 'E073', 'Erafone 2 supermall', 'REGION 4', 'https://drive.google.com/open?id=1R-RsVjkiml59UsQNXMRQeBM0eTJns0KU'],
   ];
-  const hmOut = ctx.parseFbeSimpleConfirmation(hmRows, ['HANGING_MOBILE_1', 'HANGING_MOBILE_2']);
-  assert(hmOut.length === 2, 'Hanging Mobile seharusnya fan-out jadi 2 baris, dapat ' + hmOut.length);
-  assert(hmOut[0].jenisMateri === 'HANGING_MOBILE_1', 'key pertama: ' + hmOut[0].jenisMateri);
-  assert(hmOut[1].jenisMateri === 'HANGING_MOBILE_2', 'key kedua: ' + hmOut[1].jenisMateri);
-  assert(hmOut[0].linkFoto === hmOut[1].linkFoto, 'linkFoto harus sama untuk kedua key (1 submission)');
-  assert(hmOut[0].plantCode === 'E073' && hmOut[1].plantCode === 'E073', 'plantCode harus sama untuk kedua baris fan-out');
+  const hmOut = ctx.parseFbeSimpleConfirmation(hmRows, ['HANGING_MOBILE']);
+  assert(hmOut.length === 1, 'Hanging Mobile seharusnya 1 baris (1 key, bukan fan-out), dapat ' + hmOut.length);
+  assert(hmOut[0].jenisMateri === 'HANGING_MOBILE', 'jenisMateri: ' + hmOut[0].jenisMateri);
+  assert(hmOut[0].plantCode === 'E073', 'plantCode: ' + hmOut[0].plantCode);
+
+  // Fixture untuk grup "Frame Hanging LFD & Frame Standing LFD" — grup ini
+  // YANG SEBENARNYA butuh fan-out (1 submission berlaku utk 2 key materi).
+  const frameRows = [
+    ['Timestamp', 'KODE STORE', 'NAMA STORE', 'REGION', 'SUBMIT DOKUMENTASI'],
+    ['14/08/2026 15:00:00', 'E073', 'Erafone 2 supermall', 'REGION 4', 'https://drive.google.com/open?id=FRAME123'],
+  ];
+  const frameOut = ctx.parseFbeSimpleConfirmation(frameRows, ['FRAME_HANGING_LFD', 'FRAME_STANDING_LFD']);
+  assert(frameOut.length === 2, 'Frame LFD seharusnya fan-out jadi 2 baris, dapat ' + frameOut.length);
+  assert(frameOut[0].jenisMateri === 'FRAME_HANGING_LFD', 'key pertama: ' + frameOut[0].jenisMateri);
+  assert(frameOut[1].jenisMateri === 'FRAME_STANDING_LFD', 'key kedua: ' + frameOut[1].jenisMateri);
+  assert(frameOut[0].linkFoto === frameOut[1].linkFoto, 'linkFoto harus sama untuk kedua key (1 submission)');
+  assert(frameOut[0].plantCode === 'E073' && frameOut[1].plantCode === 'E073', 'plantCode harus sama untuk kedua baris fan-out');
 
   // Baris tanpa link foto harus dilewati (belum terkonfirmasi).
   const emptyRows = [

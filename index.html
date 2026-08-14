@@ -814,16 +814,16 @@ Link form: {link_form}</textarea></div>
       <div class="form-group"><label>Header Row</label><input type="number" id="inp-header-row" value="6"></div>
     </div>
     <div id="mode-fbe-fields" style="display:none">
-      <div class="hint" style="margin-bottom:10px">Upload masing-masing file alokasi materi FBE (dari email). Kosongkan yang tidak ada — tidak semua toko dapat ke-7 materi.</div>
+      <div class="hint" style="margin-bottom:10px">Upload masing-masing file alokasi materi FBE (dari email). Kosongkan yang tidak ada — tidak semua toko dapat ke-6 materi.</div>
       <div class="form-group"><label>Easel &amp; Poster</label><input type="file" id="fbe-file-EASEL_POSTER" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('EASEL_POSTER', this.files[0])"><div class="hint" id="fbe-status-EASEL_POSTER"></div></div>
       <div class="form-group"><label>Hanging Gate</label><input type="file" id="fbe-file-HANGING_GATE" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('HANGING_GATE', this.files[0])"><div class="hint" id="fbe-status-HANGING_GATE"></div></div>
-      <div class="form-group"><label>Hanging Mobile Desain 1</label><input type="file" id="fbe-file-HANGING_MOBILE_1" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('HANGING_MOBILE_1', this.files[0])"><div class="hint" id="fbe-status-HANGING_MOBILE_1"></div></div>
-      <div class="form-group"><label>Hanging Mobile Desain 2</label><input type="file" id="fbe-file-HANGING_MOBILE_2" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('HANGING_MOBILE_2', this.files[0])"><div class="hint" id="fbe-status-HANGING_MOBILE_2"></div></div>
-      <div class="form-group"><label>Sticker Kaca &amp; Frame Hanging/Standing LFD</label><input type="file" id="fbe-file-STICKER_KACA" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('STICKER_KACA', this.files[0])"><div class="hint" id="fbe-status-STICKER_KACA"></div></div>
+      <div class="form-group"><label>Hanging Mobile (Desain 1 &amp; 2 — pilih 2 file sekaligus)</label><input type="file" id="fbe-file-HANGING_MOBILE" accept=".xlsx,.xls" multiple onchange="handleFbeMultiMaterialFile('HANGING_MOBILE', this.files)"><div class="hint" id="fbe-status-HANGING_MOBILE"></div></div>
+      <div class="form-group"><label>Sticker Kaca</label><input type="file" id="fbe-file-STICKER_KACA" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('STICKER_KACA', this.files[0])"><div class="hint" id="fbe-status-STICKER_KACA"></div></div>
+      <div class="form-group"><label>Frame Hanging LFD &amp; Frame Standing LFD</label><input type="file" id="fbe-file-FRAME_LFD" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('FRAME_LFD', this.files[0])"><div class="hint" id="fbe-status-FRAME_LFD"></div></div>
       <div class="hint" style="margin-top:14px;margin-bottom:6px">Link Google Sheet respons dokumentasi per grup materi (dari Google Form Store Leader). Kosongkan yang belum ada form-nya.</div>
       <div class="form-group"><label>Easel &amp; Poster</label><input type="text" id="inp-confirm-EASEL_POSTER" placeholder="https://docs.google.com/spreadsheets/d/.../edit"></div>
       <div class="form-group"><label>Hanging Gate</label><input type="text" id="inp-confirm-HANGING_GATE" placeholder="https://docs.google.com/spreadsheets/d/.../edit"></div>
-      <div class="form-group"><label>Hanging Mobile (Desain 1 &amp; 2)</label><input type="text" id="inp-confirm-HANGING_MOBILE" placeholder="https://docs.google.com/spreadsheets/d/.../edit"></div>
+      <div class="form-group"><label>Hanging Mobile</label><input type="text" id="inp-confirm-HANGING_MOBILE" placeholder="https://docs.google.com/spreadsheets/d/.../edit"></div>
       <div class="form-group"><label>Frame Hanging LFD &amp; Frame Standing LFD</label><input type="text" id="inp-confirm-FRAME_LFD" placeholder="https://docs.google.com/spreadsheets/d/.../edit"></div>
       <div class="form-group"><label>Sticker Kaca</label><input type="text" id="inp-confirm-STICKER_KACA" placeholder="https://docs.google.com/spreadsheets/d/.../edit"></div>
     </div>
