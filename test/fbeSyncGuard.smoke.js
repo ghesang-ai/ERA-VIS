@@ -43,6 +43,16 @@ function _minStoresForSync(c) {
       }));
 }
 
+// Salinan persis logic filter localOnly dari syncCampaignsFromCloud()
+// (js/campaigns.js) — dipisah di sini karena fungsi aslinya melakukan
+// fetch() dan menyentuh banyak state global lain yang tidak praktis
+// di-mock di smoke test ini.
+function _localOnlyFilter(campaigns, cloudIds) {
+  return campaigns.filter(c =>
+    !cloudIds.has(c.id) && !(!c.fbeMode && c.mode === 'excel' && (!c.localStores || !c.localStores.length))
+  );
+}
+
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
@@ -107,7 +117,34 @@ function run() {
   assert(excelOutFalse.length === 1 && excelOutFalse[0].nomorResi === '',
     'Excel biasa (fbeMode:false): nomorResi default kosong string, dapat ' + JSON.stringify(excelOutFalse[0]));
 
+  // 4. Regression guard: campaign FBE yang belum sempat ter-push ke cloud
+  // (mis. fire-and-forget push gagal, atau localStorage sempat penuh) dan
+  // localStores-nya kebetulan kosong di titik sync ini TIDAK BOLEH dianggap
+  // "ghost" dan dibuang — beda dari campaign excel biasa yang memang harus
+  // dibuang kalau tanpa localStores (itu tandanya campaign lama yang sudah
+  // dihapus tapi cache-nya belum bersih). Bug nyata: campaign "Scoring
+  // Visibility FBE" hilang total dari daftar campaign setelah dibuat, karena
+  // localOnly filter versi lama tidak mengecualikan fbeMode.
+  const cloudIds = new Set(['c_fbe_1']);
+  const mixedCampaigns = [
+    { id: 'c_fbe_1',      name: 'FBE',                     mode: 'excel', fbeMode: true,  localStores: [{ a: 1 }] },
+    { id: 'c_scoring_1',  name: 'Scoring Visibility FBE',   mode: 'excel', fbeMode: true,  localStores: [] },
+    { id: 'c_ghost_1',    name: 'Campaign Lama (terhapus)', mode: 'excel', fbeMode: false, localStores: [] },
+    { id: 'c_excel_1',    name: 'Campaign Excel Normal',    mode: 'excel', fbeMode: false, localStores: [{ a: 1 }] },
+  ];
+  const localOnly = _localOnlyFilter(mixedCampaigns, cloudIds);
+  const survivedIds = localOnly.map(c => c.id);
+  assert(survivedIds.includes('c_scoring_1'),
+    'Campaign FBE (scoring) dengan localStores kosong harus tetap bertahan, dapat: ' + survivedIds.join(','));
+  assert(survivedIds.includes('c_excel_1'),
+    'Campaign excel biasa dengan localStores valid harus tetap bertahan, dapat: ' + survivedIds.join(','));
+  assert(!survivedIds.includes('c_ghost_1'),
+    'Campaign excel biasa TANPA localStores (ghost asli) harus tetap dibuang, dapat: ' + survivedIds.join(','));
+  assert(!survivedIds.includes('c_fbe_1'),
+    'Campaign yang SUDAH ada di cloud tidak boleh masuk localOnly, dapat: ' + survivedIds.join(','));
+
   console.log('OK _minStoresForSync');
+  console.log('OK _localOnlyFilter (regression: campaign FBE tidak hilang saat belum ter-sync)');
 }
 
 try {
