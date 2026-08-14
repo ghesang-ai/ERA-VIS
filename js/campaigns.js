@@ -248,6 +248,17 @@ function populateAllSelects() {
   });
 }
 
+function populateFbeSelect() {
+  const s = document.getElementById('fbe-campaign-select');
+  if (!s) return;
+  const v = s.value;
+  s.innerHTML = '<option value="">-- Pilih Campaign FBE --</option>';
+  campaigns.filter(c => c.fbeMode).forEach(c => {
+    s.innerHTML += `<option value="${c.id}">${esc(c.name)}${c.status === 'ended' ? ' (Ended)' : ''}</option>`;
+  });
+  s.value = v;
+}
+
 
 // ── OPEN ADD MODAL ─────────────────────────────────────────────────
 function openAddCampaign() {
@@ -548,6 +559,7 @@ async function saveCampaign() {
   closeModal('modal-add');
   renderCampaignList();
   populateAllSelects();
+  populateFbeSelect();
 }
 
 
@@ -603,6 +615,7 @@ async function syncCampaignsFromCloud() {
     // Buang sisa baris non-toko dari data lama (lokal maupun cloud)
     await cleanupStoredCampaigns();
     populateAllSelects();
+    populateFbeSelect();
     renderCampaignList();
     return true;
   } catch (e) {
@@ -882,6 +895,7 @@ function importCampaigns() {
         save(SK.campaigns, campaigns);
         renderCampaignList();
         populateAllSelects();
+        populateFbeSelect();
         toast(added + ' campaign baru, ' + updated + ' diupdate');
         addLog('system', 'Import ' + imported.length + ' campaigns');
       } catch (err) {
@@ -911,6 +925,7 @@ function deleteCampaign(id) {
   fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
   renderCampaignList();
   populateAllSelects();
+  populateFbeSelect();
   toast('Campaign dihapus');
   addLog('system', 'Hapus campaign: ' + (c ? c.name : id));
 }
