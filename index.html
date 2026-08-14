@@ -783,6 +783,7 @@ Link form: {link_form}</textarea></div>
       <button class="mode-btn active" id="mode-btn-excel" onclick="switchCampaignMode('excel')">&#x1F4CE; Upload Excel (Baru)</button>
       <button class="mode-btn" id="mode-btn-sheet" onclick="switchCampaignMode('sheet')">&#x1F517; Google Sheets (Lama)</button>
       <button class="mode-btn" id="mode-btn-fbe" onclick="switchCampaignMode('fbe')">&#x1F389; FBE Multi-Material</button>
+      <button class="mode-btn" id="mode-btn-scoring" onclick="switchCampaignMode('scoring')">&#x1F3C6; Scoring Visibility FBE</button>
     </div>
     <div class="form-group"><label>Nama Campaign</label><input type="text" id="inp-name" placeholder="Hanging Mobile April 2026"></div>
     <div id="mode-excel-fields">
@@ -832,6 +833,10 @@ Link form: {link_form}</textarea></div>
       <div class="form-group"><label>Hanging Mobile</label><input type="text" id="inp-form-HANGING_MOBILE" placeholder="https://forms.gle/..."></div>
       <div class="form-group"><label>Frame Hanging LFD &amp; Frame Standing LFD</label><input type="text" id="inp-form-FRAME_LFD" placeholder="https://forms.gle/..."></div>
       <div class="form-group"><label>Sticker Kaca</label><input type="text" id="inp-form-STICKER_KACA" placeholder="https://forms.gle/..."></div>
+    </div>
+    <div id="mode-scoring-fields" style="display:none">
+      <div class="hint" style="margin-bottom:10px">Semua toko wajib submit ke-6 foto (Easel &amp; Poster, Hanging Mobile, Hanging Gate, POI, Signboard, Spanduk) sekaligus lewat 1 form gabungan &mdash; tidak ada alokasi materi per toko. Daftar toko otomatis diambil dari campaign FBE yang sudah ada.</div>
+      <div class="form-group"><label>Link Google Sheet respons (1 form gabungan)</label><input type="text" id="inp-scoring-sheet" placeholder="https://docs.google.com/spreadsheets/d/.../edit"><div class="hint">Kosongkan dulu kalau sheet responsnya belum ada &mdash; bisa diisi belakangan lewat Edit Campaign.</div></div>
     </div>
     <div class="form-group" id="mode-generic-formlink"><label>Link Google Form</label><input type="text" id="inp-form-link" placeholder="https://forms.gle/..."></div>
     <div class="form-group"><label>Deadline</label><input type="date" id="inp-deadline"></div>

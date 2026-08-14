@@ -159,6 +159,11 @@ const FBE_MATERIALS = {
   STICKER_KACA:       { label: 'Sticker Kaca',            formLabel: 'sticker kaca' },
   FRAME_HANGING_LFD:  { label: 'Frame Hanging LFD',       formLabel: 'frame hanging lfd' },
   FRAME_STANDING_LFD: { label: 'Frame Standing LFD',      formLabel: 'frame standing lfd' },
+  // Key khusus campaign "Scoring Visibility FBE" (lihat FBE_SCORING_MATERIALS)
+  // — POI dan SIGNBOARD/SPANDUK tidak dipakai campaign FBE alokasi materi biasa.
+  POI:                { label: 'POI',                    formLabel: 'poi' },
+  SIGNBOARD:          { label: 'Signboard',               formLabel: 'signboard' },
+  SPANDUK:            { label: 'Spanduk',                 formLabel: 'spanduk' },
 };
 
 // ── FBE GRUP UPLOAD & KONFIRMASI (realita lapangan) ────────────────
@@ -184,6 +189,16 @@ const FBE_CONFIRM_GROUPS = {
   STICKER_KACA  : { label: 'Sticker Kaca',                             materials: ['STICKER_KACA'] },
 };
 const DEFAULT_FBE_CONFIRM_SHEET_NAME = 'Form Responses 1';
+
+// ── SCORING VISIBILITY FBE ─────────────────────────────────────────
+// Campaign kedua (terpisah dari alokasi materi FBE di atas): 1 form
+// gabungan tempat Store Leader wajib submit ke-6 foto ini sekaligus per
+// toko (lihat parseFbeScoringConfirmation() di js/fbeImport.js). Semua
+// toko wajib isi semuanya — tidak ada konsep alokasi per toko seperti
+// campaign FBE biasa, jadi master toko-nya diturunkan otomatis dari
+// campaign FBE yang sudah ada (lihat _deriveScoringMasterRows() di
+// js/campaigns.js), bukan upload Excel terpisah.
+const FBE_SCORING_MATERIALS = ['EASEL_POSTER', 'HANGING_MOBILE', 'HANGING_GATE', 'POI', 'SIGNBOARD', 'SPANDUK'];
 
 
 // ── HEALTH SCORE WEIGHTS ───────────────────────────────────────────

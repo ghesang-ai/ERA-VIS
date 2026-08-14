@@ -264,7 +264,7 @@ function populateFbeSelect() {
 function openAddCampaign() {
   const brandLabel = BRAND_META[_activeBrand]?.label || _activeBrand;
   document.getElementById('modal-add-title').textContent = `Tambah Campaign · ${brandLabel}`;
-  ['edit-campaign-id','inp-name','inp-form-link','inp-deadline','inp-response-sheet']
+  ['edit-campaign-id','inp-name','inp-form-link','inp-deadline','inp-response-sheet','inp-scoring-sheet']
     .forEach(id => document.getElementById(id).value = '');
   document.getElementById('inp-master-sheet').value      = DEFAULT_MASTER_SHEET;
   document.getElementById('inp-import-sheet').value      = DEFAULT_IMPORT_SHEET;
@@ -309,7 +309,11 @@ function openEditCampaign(id) {
   document.getElementById('inp-status').value            = c.status    || 'active';
   _excelWB = null;
 
-  if (c.fbeMode) {
+  if (c.fbeMode && c.scoringMode) {
+    switchCampaignMode('scoring');
+    document.getElementById('inp-scoring-sheet').value =
+      (c.confirmSheets && c.confirmSheets.SCORING && c.confirmSheets.SCORING.sheetId) || '';
+  } else if (c.fbeMode) {
     switchCampaignMode('fbe');
     _fbeFiles = {};
     Object.keys(FBE_CONFIRM_GROUPS).forEach(group => {
@@ -357,11 +361,14 @@ function switchCampaignMode(mode) {
   document.getElementById('mode-btn-excel').classList.toggle('active', mode === 'excel');
   document.getElementById('mode-btn-sheet').classList.toggle('active', mode === 'sheet');
   document.getElementById('mode-btn-fbe').classList.toggle('active', mode === 'fbe');
-  document.getElementById('mode-excel-fields').style.display = mode === 'excel' ? '' : 'none';
-  document.getElementById('mode-sheet-fields').style.display = mode === 'sheet' ? '' : 'none';
-  document.getElementById('mode-fbe-fields').style.display   = mode === 'fbe'   ? '' : 'none';
+  document.getElementById('mode-btn-scoring').classList.toggle('active', mode === 'scoring');
+  document.getElementById('mode-excel-fields').style.display   = mode === 'excel'   ? '' : 'none';
+  document.getElementById('mode-sheet-fields').style.display   = mode === 'sheet'   ? '' : 'none';
+  document.getElementById('mode-fbe-fields').style.display     = mode === 'fbe'     ? '' : 'none';
+  document.getElementById('mode-scoring-fields').style.display = mode === 'scoring' ? '' : 'none';
   // FBE punya 5 link form terpisah per grup materi, jadi field "Link Google
-  // Form" generik (dipakai mode excel/sheet) disembunyikan di mode ini.
+  // Form" generik (dipakai mode excel/sheet/scoring) disembunyikan di mode
+  // itu saja — Scoring cuma 1 form gabungan jadi field generik ini pas dipakai.
   document.getElementById('mode-generic-formlink').style.display = mode === 'fbe' ? 'none' : '';
 }
 
@@ -523,6 +530,34 @@ async function handleFbeMultiMaterialFile(slotKey, fileList) {
 }
 
 
+// ── SCORING VISIBILITY FBE: turunkan master toko dari campaign FBE ──
+// Campaign Scoring tidak punya alokasi materi per toko sendiri (semua
+// toko wajib submit ke-6 materi) — daftar toko-nya diambil dari
+// campaign FBE (fbeMode tapi bukan scoringMode) yang sudah ada, lalu
+// di-cross-join dengan FBE_SCORING_MATERIALS jadi baris long-format
+// yang bentuknya sama seperti master alokasi FBE biasa, supaya
+// computeFbeStoreStatus() tetap tidak perlu berubah sama sekali.
+function _deriveScoringMasterRows() {
+  const source = campaigns.find(c => c.fbeMode && !c.scoringMode);
+  if (!source || !source.localStores || !source.localStores.length) return null;
+
+  const stores = {};
+  source.localStores.forEach(r => {
+    if (!stores[r.plantCode]) {
+      stores[r.plantCode] = { plantCode: r.plantCode, namaToko: r.namaToko, region: r.region, kota: r.kota };
+    }
+  });
+
+  const out = [];
+  Object.values(stores).forEach(s => {
+    FBE_SCORING_MATERIALS.forEach(key => {
+      out.push({ ...s, jenisMateri: key, subDesain: '', qty: 1, noResi: '' });
+    });
+  });
+  return out;
+}
+
+
 // ── SAVE CAMPAIGN ──────────────────────────────────────────────────
 async function saveCampaign() {
   const mode = document.getElementById('inp-mode').value;
@@ -573,6 +608,23 @@ async function saveCampaign() {
     if (!localStores.length) { toast('Upload minimal 1 file materi FBE', 'error'); return; }
 
     obj = { mode:'excel', fbeMode:true, localStores, materials, confirmSheets, formLinks, masterSheet:'', headerRow: DEFAULT_HEADER_ROW };
+
+  } else if (mode === 'scoring') {
+    const sheetRaw = document.getElementById('inp-scoring-sheet').value.trim();
+    const confirmSheets = {};
+    if (sheetRaw) confirmSheets.SCORING = { sheetId: extractSheetId(sheetRaw), sheetName: DEFAULT_FBE_CONFIRM_SHEET_NAME };
+
+    const localStores = _deriveScoringMasterRows();
+    if (!localStores) {
+      toast('Belum ada campaign FBE dengan data toko — buat/upload campaign FBE dulu sebelum bikin Scoring', 'error');
+      return;
+    }
+
+    obj = {
+      mode: 'excel', fbeMode: true, scoringMode: true,
+      localStores, materials: FBE_SCORING_MATERIALS.slice(), confirmSheets,
+      masterSheet: '', headerRow: DEFAULT_HEADER_ROW,
+    };
 
   } else if (mode === 'excel') {
     const respRaw = document.getElementById('inp-response-sheet').value.trim();
