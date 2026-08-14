@@ -13,40 +13,58 @@
 .fbe-material-detail td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
 
 /* ── COMPILE REPORT JPG (target render off-screen) ───────────────
-   Sengaja pakai branding merah Festival Belanja sendiri, terpisah
-   dari tema teal/terang aplikasi — mengikuti desain referensi dan
-   di-export sebagai gambar mandiri, bukan bagian dari UI app. */
+   Ukuran KANVAS FIXED 1920x1080 (bukan auto-height) supaya output JPG
+   selalu presisi 1920x1080 apa pun jumlah materi toko-nya — lihat
+   downloadFbeReport() di js/fbeReportExport.js (html2canvas scale:1,
+   1:1 dengan ukuran CSS di sini). Background pakai file asli tim
+   marketing (assets/fbe-report-bg.jpg) — badge "FESTIVAL BELANJA
+   erafone" sudah jadi bagian file itu, TIDAK dibuat ulang di CSS. */
 .fbe-report-page {
-  width: 1400px;
-  background: linear-gradient(135deg, #FCE8CC 0%, #FDF4E6 100%);
-  padding: 40px;
+  width: 1920px; height: 1080px;
+  background-image: url('../assets/fbe-report-bg.jpg');
+  background-size: cover; background-position: center;
+  position: relative;
   font-family: 'Inter', system-ui, sans-serif;
   box-sizing: border-box;
 }
 .fbe-report-header {
-  background: #fff; border-radius: 20px; padding: 28px 36px;
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 24px;
+  position: absolute; top: 64px; left: 64px; right: 420px;
+  background: #F8FAFC; border-radius: 20px; padding: 26px 40px;
+  display: flex; align-items: center; gap: 20px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
 }
-.fbe-report-title { font-size: 26px; font-weight: 800; color: #0F172A; text-decoration: underline; }
-.fbe-report-logo {
-  background: #C81E3A; color: #fff; border-radius: 50px;
-  padding: 8px 22px; text-align: center; font-size: 11px; font-weight: 700;
-  line-height: 1.3; letter-spacing: .5px;
+.fbe-report-title {
+  margin: 0; font-size: 34px; font-weight: 800; color: #0F172A;
+  text-decoration: underline; text-decoration-thickness: 2px;
+  text-underline-offset: 6px; letter-spacing: -0.01em;
 }
-.fbe-report-logo span { font-size: 15px; font-style: italic; }
-.fbe-report-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.fbe-report-section { background: #fff; border-radius: 14px; padding: 16px; }
+/* Tag campaign — bedakan report dari campaign "FBE" (ungu) vs
+   "Scoring Visibility FBE" (oranye), lihat buildFbeReportHtml(). */
+.fbe-report-tag {
+  flex-shrink: 0; font-size: 15px; font-weight: 800; letter-spacing: .02em;
+  padding: 8px 20px; border-radius: 999px; color: #fff; white-space: nowrap;
+}
+.fbe-report-tag.tag-fbe { background: #7C3AED; }
+.fbe-report-tag.tag-scoring { background: #D97706; }
+
+.fbe-report-grid {
+  position: absolute; top: 176px; left: 64px; right: 64px; bottom: 64px;
+  background: #F8FAFC; border-radius: 20px; padding: 36px 40px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+}
+.fbe-report-section { display: flex; flex-direction: column; min-height: 0; }
 .fbe-report-section-title {
-  font-size: 15px; font-weight: 700; color: #0F172A; text-decoration: underline;
-  margin-bottom: 10px; text-align: center;
+  font-size: 18px; font-weight: 700; color: #0F172A; text-decoration: underline;
+  text-underline-offset: 4px; margin-bottom: 10px; text-align: center; flex-shrink: 0;
 }
 .fbe-report-photo-wrap {
-  width: 100%; min-height: 220px; border-radius: 10px; overflow: hidden;
-  background: #F1F5F9; display: flex; align-items: center; justify-content: center;
+  flex: 1; min-height: 0; border-radius: 12px; overflow: hidden;
+  background: #E2E8F0; display: flex; align-items: center; justify-content: center;
 }
-.fbe-report-photo-wrap img { width: 100%; height: auto; display: block; }
+.fbe-report-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fbe-report-missing {
   color: #DC2626; font-weight: 700; font-size: 14px;
-  border: 2px dashed #DC2626; border-radius: 10px; padding: 40px 20px; text-align: center;
+  border: 2px dashed #DC2626; border-radius: 10px;
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
 }

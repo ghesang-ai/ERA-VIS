@@ -48,15 +48,26 @@ function _fbeReportSectionHtml(material) {
     </div>`;
 }
 
+// Grid selalu 3 kolom, tapi jumlah baris menyesuaikan jumlah materi toko
+// (FBE bisa 1-6 materi tergantung alokasi; Scoring selalu 6) — dihitung di
+// sini (bukan CSS statis) supaya kanvas 1920x1080 yang fixed tetap terisi
+// rapi baik toko dengan 1 materi maupun 6 materi, lihat css/fbe.css.
 function buildFbeReportHtml(store) {
   const sections = store.materials.map(_fbeReportSectionHtml).join('');
+  const rows = Math.max(1, Math.ceil(store.materials.length / 3));
+
+  const isScoring = fbeCurrentCampaign && fbeCurrentCampaign.scoringMode;
+  const tag = isScoring
+    ? '<div class="fbe-report-tag tag-scoring">Scoring Visibility FBE</div>'
+    : '<div class="fbe-report-tag tag-fbe">FBE</div>';
+
   return `
     <div class="fbe-report-page">
       <div class="fbe-report-header">
         <div class="fbe-report-title">${esc(store.namaToko)} - ${esc(store.plantCode)}</div>
-        <div class="fbe-report-logo">FESTIVAL BELANJA<br><span>erafone</span></div>
+        ${tag}
       </div>
-      <div class="fbe-report-grid">${sections}</div>
+      <div class="fbe-report-grid" style="grid-template-rows:repeat(${rows},1fr)">${sections}</div>
     </div>`;
 }
 
@@ -82,8 +93,10 @@ async function downloadFbeReport(plantCode) {
       img.onload = img.onerror = resolve;
     })));
 
+    // scale:1 — .fbe-report-page sudah fixed 1920x1080 (lihat css/fbe.css),
+    // jadi outputnya presisi 1920x1080 tanpa perlu dikalikan lagi.
     const canvas = await html2canvas(container.querySelector('.fbe-report-page'), {
-      useCORS: true, backgroundColor: '#ffffff', scale: 2,
+      useCORS: true, backgroundColor: '#ffffff', scale: 1,
     });
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
