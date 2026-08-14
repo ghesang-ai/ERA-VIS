@@ -125,7 +125,7 @@ function _campRenderCard(c) {
       <button class="del-btn" title="Hapus" onclick="deleteCampaign('${c.id}')">✕</button>
     </div>
     <div class="campaign-badge ${c.status || 'active'}">${c.status === 'ended' ? 'Ended' : 'Active'}</div>
-    <div class="campaign-name">${esc(c.name)}${modeTag}</div>
+    <div class="campaign-name">${esc(c.name)}${modeTag}${c.fbeMode ? `<span class="badge badge-purple" style="margin-left:6px">FBE · ${(c.materials||[]).length} materi</span>` : ''}</div>
     <div style="margin-bottom:8px">${_campDeadlineBadge(c)}</div>
     <div class="campaign-meta">
       ${c.formLink ? `<a href="${esc(c.formLink)}" target="_blank">Form</a> · ` : ''}${storeMeta}
