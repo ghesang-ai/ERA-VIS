@@ -283,6 +283,8 @@ function openAddCampaign() {
   Object.keys(FBE_CONFIRM_GROUPS).forEach(group => {
     const el = document.getElementById('inp-confirm-' + group);
     if (el) el.value = '';
+    const fel = document.getElementById('inp-form-' + group);
+    if (fel) fel.value = '';
   });
   document.getElementById('dropzone').className          = 'dropzone';
   document.getElementById('dropzone-label').textContent  = 'Klik atau drag & drop file Excel di sini';
@@ -313,6 +315,8 @@ function openEditCampaign(id) {
     Object.keys(FBE_CONFIRM_GROUPS).forEach(group => {
       const el = document.getElementById('inp-confirm-' + group);
       if (el) el.value = (c.confirmSheets && c.confirmSheets[group] && c.confirmSheets[group].sheetId) || '';
+      const fel = document.getElementById('inp-form-' + group);
+      if (fel) fel.value = (c.formLinks && c.formLinks[group]) || '';
     });
     // Tampilkan status "sudah tersimpan" per SLOT upload (bukan per key
     // materi) — slot HANGING_MOBILE/STICKER_KACA/FRAME_LFD masing-masing
@@ -356,6 +360,9 @@ function switchCampaignMode(mode) {
   document.getElementById('mode-excel-fields').style.display = mode === 'excel' ? '' : 'none';
   document.getElementById('mode-sheet-fields').style.display = mode === 'sheet' ? '' : 'none';
   document.getElementById('mode-fbe-fields').style.display   = mode === 'fbe'   ? '' : 'none';
+  // FBE punya 5 link form terpisah per grup materi, jadi field "Link Google
+  // Form" generik (dipakai mode excel/sheet) disembunyikan di mode ini.
+  document.getElementById('mode-generic-formlink').style.display = mode === 'fbe' ? 'none' : '';
 }
 
 
@@ -533,9 +540,12 @@ async function saveCampaign() {
     // Realita lapangan: 5 Google Form/sheet konfirmasi terpisah per grup
     // materi (bukan 1 form gabungan) — lihat FBE_CONFIRM_GROUPS.
     const confirmSheets = {};
+    const formLinks = {};
     Object.keys(FBE_CONFIRM_GROUPS).forEach(group => {
       const raw = (document.getElementById('inp-confirm-' + group).value || '').trim();
       if (raw) confirmSheets[group] = { sheetId: extractSheetId(raw), sheetName: DEFAULT_FBE_CONFIRM_SHEET_NAME };
+      const formRaw = (document.getElementById('inp-form-' + group).value || '').trim();
+      if (formRaw) formLinks[group] = formRaw;
     });
 
     let localStores = [];
@@ -562,7 +572,7 @@ async function saveCampaign() {
 
     if (!localStores.length) { toast('Upload minimal 1 file materi FBE', 'error'); return; }
 
-    obj = { mode:'excel', fbeMode:true, localStores, materials, confirmSheets, masterSheet:'', headerRow: DEFAULT_HEADER_ROW };
+    obj = { mode:'excel', fbeMode:true, localStores, materials, confirmSheets, formLinks, masterSheet:'', headerRow: DEFAULT_HEADER_ROW };
 
   } else if (mode === 'excel') {
     const respRaw = document.getElementById('inp-response-sheet').value.trim();
