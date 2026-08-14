@@ -13,14 +13,27 @@
 // Jawaban file-upload Google Form berbentuk link "view" Drive
 // (drive.google.com/open?id=... atau .../file/d/ID/view) yang tidak
 // bisa langsung dipakai sebagai <img src> (hotlink diblokir). Ini
-// mengubahnya jadi endpoint thumbnail publik Drive, yang berfungsi
-// untuk file yang di-share sebagai "Anyone with the link can view"
-// (wajib — lihat spesifikasi field Google Form di plan Task 3).
+// mengubahnya jadi URL gambar publik Drive, yang berfungsi untuk file
+// yang di-share sebagai "Anyone with the link can view" (wajib — lihat
+// spesifikasi field Google Form di plan Task 3).
+//
+// PENTING: pakai lh3.googleusercontent.com langsung, JANGAN
+// drive.google.com/thumbnail — thumbnail endpoint itu me-redirect (302)
+// ke lh3.googleusercontent.com, dan response redirect-nya sendiri TIDAK
+// punya header Access-Control-Allow-Origin (cuma tujuan akhirnya yang
+// punya). Karena <img crossorigin="anonymous"> di bawah wajib dipakai
+// supaya html2canvas bisa baca piksel gambar ke canvas (tanpa itu,
+// canvas "tainted" dan gagal total), browser menolak seluruh redirect
+// chain begitu 1 hop di tengah tidak punya header CORS — gambarnya
+// gagal load diam-diam (img.onerror), hasil JPG jadi kotak kosong,
+// PADAHAL link foto-nya sendiri sudah benar "Anyone with the link".
+// Sudah diverifikasi langsung: lh3.googleusercontent.com/d/ID=wN selalu
+// balas Access-Control-Allow-Origin:* untuk file yang link-nya publik.
 function driveImgUrl(link) {
   if (!link) return '';
   const m = link.match(/[-\w]{25,}/); // ID file Drive selalu 25+ karakter url-safe
   if (!m) return link;
-  return `https://drive.google.com/thumbnail?id=${m[0]}&sz=w1000`;
+  return `https://lh3.googleusercontent.com/d/${m[0]}=w1000`;
 }
 
 function _fbeReportSectionHtml(material) {
