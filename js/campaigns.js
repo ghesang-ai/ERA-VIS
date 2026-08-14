@@ -686,7 +686,15 @@ async function saveCampaign() {
     addLog('system', 'Campaign baru: ' + name);
   }
 
-  save(SK.campaigns, campaigns);
+  // Kalau localStorage penuh (device sudah punya banyak campaign, apalagi
+  // campaign FBE yang datanya ribuan baris), setItem() bisa throw. Tanpa
+  // try/catch di sini, exception itu akan menghentikan seluruh fungsi ini
+  // SEBELUM sempat pushCampaignsToCloud() — campaign yang baru saja disimpan
+  // jadi cuma hidup di memori sesi ini dan hilang total begitu halaman
+  // di-refresh (tidak ke local, tidak ke cloud). Tangkap di sini supaya
+  // push ke cloud tetap jalan sebagai jalur penyelamatan.
+  try { save(SK.campaigns, campaigns); }
+  catch (e) { console.warn('[ERA-VIS] localStorage penuh saat simpan campaign:', e.message); }
   pushCampaignsToCloud();
   closeModal('modal-add');
   renderCampaignList();
@@ -733,9 +741,15 @@ async function syncCampaignsFromCloud() {
       return c;
     });
     // Kampanye lokal yang tidak ada di cloud — tapi abaikan Excel campaign tanpa localStores
-    // (artinya campaign lama yang sudah dihapus dan cache-nya belum bersih)
+    // (artinya campaign lama yang sudah dihapus dan cache-nya belum bersih). Campaign FBE
+    // (fbeMode) SENGAJA dikecualikan dari heuristik ini: campaign FBE yang baru saja dibuat
+    // bisa saja belum sempat ter-push ke cloud (fire-and-forget, atau localStorage penuh)
+    // padahal datanya valid di memori — kalau ikut heuristik "Excel tanpa localStores =
+    // ghost" di atas, campaign FBE bisa hilang permanen di sync berikutnya walau tidak
+    // pernah dihapus siapa pun. Lihat juga _minStoresForSync/cleanupStoredCampaigns yang
+    // sudah lebih dulu memberi pengecualian serupa untuk fbeMode.
     const localOnly = campaigns.filter(c =>
-      !cloudIds.has(c.id) && !(c.mode === 'excel' && (!c.localStores || !c.localStores.length))
+      !cloudIds.has(c.id) && !(!c.fbeMode && c.mode === 'excel' && (!c.localStores || !c.localStores.length))
     );
     campaigns = [...merged, ...localOnly];
     save(SK.campaigns, campaigns);
