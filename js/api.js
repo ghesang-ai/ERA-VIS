@@ -231,8 +231,12 @@ function parseImport(rows) {
 async function ensureLocalStores(cid) {
   const c = campaigns.find(x => x.id === cid);
   if (!c) return { ok: false, stores: [], reason: 'not-found' };
+  // Campaign FBE (long-format, banyak baris per plantCode — 1 baris per
+  // toko + per materi) TIDAK boleh lewat sanitizeStores(): fungsi itu
+  // dedupe per plantCode dan akan membuang baris materi lain milik toko
+  // yang sama, menyisakan cuma 1 materi per toko.
   if (c.localStores && c.localStores.length) {
-    return { ok: true, stores: sanitizeStores(c.localStores), reason: 'local' };
+    return { ok: true, stores: c.fbeMode ? c.localStores : sanitizeStores(c.localStores), reason: 'local' };
   }
 
   let res;
@@ -251,7 +255,10 @@ async function ensureLocalStores(cid) {
   }
 
   let pulled;
-  try { pulled = sanitizeStores(await res.json()); } catch (_) { return { ok: false, stores: [], reason: 'error' }; }
+  try {
+    const raw = await res.json();
+    pulled = c.fbeMode ? raw : sanitizeStores(raw);
+  } catch (_) { return { ok: false, stores: [], reason: 'error' }; }
   if (!pulled.length) {
     return { ok: false, stores: [], reason: 'empty' };
   }
