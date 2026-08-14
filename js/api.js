@@ -267,10 +267,13 @@ async function ensureLocalStores(cid) {
 
 /**
  * Toast pesan error yang sesuai penyebab dari ensureLocalStores().
+ * emptyMsg opsional — override pesan untuk reason:'empty', karena campaign
+ * FBE/Scoring tidak selalu punya langkah "upload Excel" (pesan default di
+ * bawah ini ditulis untuk campaign mode excel biasa).
  */
-function toastLocalStoresError(result) {
+function toastLocalStoresError(result, emptyMsg) {
   if (result.reason === 'empty') {
-    toast('Data toko belum ada — upload Excel di edit campaign', 'error');
+    toast(emptyMsg || 'Data toko belum ada — upload Excel di edit campaign', 'error');
   } else if (result.reason === 'offline') {
     toast('Tidak ada koneksi ke server — data toko gagal diambil', 'error');
   } else {
