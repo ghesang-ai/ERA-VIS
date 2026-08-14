@@ -169,7 +169,7 @@ function renderFbeTable() {
 
   const tbody = document.getElementById('fbe-tbody');
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Tidak ada toko yang cocok dengan filter</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Tidak ada toko yang cocok dengan filter</td></tr>`;
     return;
   }
 
@@ -192,6 +192,7 @@ function renderFbeTable() {
 
     return `
     <tr>
+      <td><input type="checkbox" class="fbe-check" data-code="${esc(s.plantCode)}"></td>
       <td><button class="btn btn-sm" onclick="toggleFbeExpand('${esc(s.plantCode)}')">&#x25BC;</button></td>
       <td><strong>${esc(s.plantCode)}</strong></td>
       <td>${esc(s.namaToko)}</td>
@@ -204,7 +205,7 @@ function renderFbeTable() {
       </td>
     </tr>
     <tr id="${rowId}" class="fbe-expand-row" style="display:none">
-      <td colspan="7">
+      <td colspan="8">
         <table class="fbe-material-detail"><thead><tr><th>Materi</th><th>Detail</th><th>Status</th><th>Tanggal</th></tr></thead>
         <tbody>${detailRows}</tbody></table>
       </td>
@@ -215,6 +216,10 @@ function renderFbeTable() {
 function toggleFbeExpand(plantCode) {
   const row = document.getElementById('fbe-row-' + plantCode);
   if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+function toggleAllFbe(el) {
+  document.querySelectorAll('.fbe-check').forEach(cb => cb.checked = el.checked);
 }
 
 // ── EXPORT EXCEL ─────────────────────────────────────────────────────
@@ -278,16 +283,11 @@ function _fbeScanPendingReminders() {
 }
 
 // ── PREVIEW sebelum kirim massal ──────────────────────────────────
-// Tombol "Scan & Kirim Reminder" tidak langsung kirim — buka modal berisi
-// isi pesan lengkap tiap (toko, materi) dulu, baru kirim semua kalau user
-// menekan "Kirim Semua via WhatsApp" di modal itu.
-function openFbeRemindPreview() {
-  if (!fbeCurrentCampaign) { toast('Pilih campaign FBE', 'error'); return; }
-  if (!settings.fonnteToken) { toast('Set Fonnte Token!', 'error'); return; }
-
-  const pending = _fbeScanPendingReminders();
-  if (!pending.length) { toast('Tidak ada materi belum terpasang dengan SL terdaftar', 'warn'); return; }
-
+// Tombol "Scan & Kirim Reminder" / "Blast Terpilih" tidak langsung kirim —
+// buka modal berisi isi pesan lengkap tiap (toko, materi) dulu, baru kirim
+// semua kalau user menekan "Kirim Semua via WhatsApp" di modal itu. Dipakai
+// bareng oleh kedua tombol, bedanya cuma daftar `pending` yang di-scan.
+function _openFbeRemindPreviewModal(pending) {
   _fbePendingReminders = pending;
 
   document.getElementById('fbe-remind-summary').textContent =
@@ -305,6 +305,32 @@ function openFbeRemindPreview() {
   }).join('');
 
   openModal('modal-fbe-remind');
+}
+
+// Scan semua toko yang punya materi belum terpasang (tanpa filter pilihan).
+function openFbeRemindPreview() {
+  if (!fbeCurrentCampaign) { toast('Pilih campaign FBE', 'error'); return; }
+  if (!settings.fonnteToken) { toast('Set Fonnte Token!', 'error'); return; }
+
+  const pending = _fbeScanPendingReminders();
+  if (!pending.length) { toast('Tidak ada materi belum terpasang dengan SL terdaftar', 'warn'); return; }
+
+  _openFbeRemindPreviewModal(pending);
+}
+
+// Cuma toko yang dicentang di tabel (checkbox .fbe-check) — toko yang
+// dicentang tapi semua materinya sudah terkonfirmasi otomatis dilewati.
+function openFbeBlastPreview() {
+  if (!fbeCurrentCampaign) { toast('Pilih campaign FBE', 'error'); return; }
+  if (!settings.fonnteToken) { toast('Set Fonnte Token!', 'error'); return; }
+
+  const checkedCodes = new Set([...document.querySelectorAll('.fbe-check:checked')].map(cb => cb.dataset.code));
+  if (!checkedCodes.size) { toast('Centang toko dulu', 'warn'); return; }
+
+  const pending = _fbeScanPendingReminders().filter(p => checkedCodes.has(p.store.plantCode));
+  if (!pending.length) { toast('Toko yang dicentang tidak punya materi belum terpasang / SL tidak terdaftar', 'warn'); return; }
+
+  _openFbeRemindPreviewModal(pending);
 }
 
 async function confirmSendFbeReminders() {
