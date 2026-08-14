@@ -172,6 +172,7 @@
           <input type="text" id="fbe-search" placeholder="Cari toko / plant code..." oninput="renderFbeTable()">
           <button class="btn btn-sm" onclick="exportFbeExcel()">&#x1F4E5; Export Excel</button>
           <button class="btn btn-sm btn-orange" onclick="openFbeRemindPreview()">&#x1F4E8; Scan &amp; Kirim Reminder</button>
+          <button class="btn btn-sm btn-purple" onclick="openFbeBlastPreview()">&#x1F916; Blast Terpilih</button>
         </div>
 
         <div class="kpi-row" id="fbe-kpi-row" style="display:none">
@@ -205,7 +206,7 @@
             <div class="card">
               <div class="card-head"><span class="card-title">Data Toko — FBE</span><span class="last-sync" id="fbe-count"></span></div>
               <div class="card-body"><div class="tbl-wrap"><table>
-                <thead><tr><th></th><th>Plant Code</th><th>Nama Toko</th><th>Region</th><th>Progress</th><th>Materi</th><th>Report</th></tr></thead>
+                <thead><tr><th><input type="checkbox" id="fbe-check-all" onchange="toggleAllFbe(this)"></th><th></th><th>Plant Code</th><th>Nama Toko</th><th>Region</th><th>Progress</th><th>Materi</th><th>Report</th></tr></thead>
                 <tbody id="fbe-tbody"></tbody>
               </table></div></div>
             </div>
