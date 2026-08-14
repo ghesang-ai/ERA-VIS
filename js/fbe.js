@@ -105,3 +105,101 @@ function renderFbeRegionLeaderboard() {
     </div>
   `).join('');
 }
+
+// ── FILTER + SEARCH ─────────────────────────────────────────────────
+function getFilteredFbeStores() {
+  const region = document.getElementById('fbe-region-filter').value;
+  const status = document.getElementById('fbe-status-filter').value;
+  const q       = document.getElementById('fbe-search').value.trim().toLowerCase();
+
+  return fbeStoreStatus.filter(s => {
+    if (region && s.region !== region) return false;
+    if (status === 'complete' && !(s.totalCount > 0 && s.doneCount === s.totalCount)) return false;
+    if (status === 'partial'  && !(s.doneCount > 0 && s.doneCount < s.totalCount)) return false;
+    if (status === 'empty'    && s.doneCount !== 0) return false;
+    if (q && !(s.plantCode.toLowerCase().includes(q) || s.namaToko.toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+// ── TABEL ────────────────────────────────────────────────────────────
+function renderFbeTable() {
+  if (!fbeCurrentCampaign) return;
+  const rows = getFilteredFbeStores();
+  document.getElementById('fbe-count').textContent = `${rows.length} dari ${fbeStoreStatus.length} toko`;
+
+  const tbody = document.getElementById('fbe-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Tidak ada toko yang cocok dengan filter</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(s => {
+    const rowId    = 'fbe-row-' + s.plantCode;
+    const complete = s.totalCount > 0 && s.doneCount === s.totalCount;
+    const chips = s.materials.map(m => {
+      const cls = m.confirmed ? 'badge badge-done' : 'badge badge-notdone';
+      return `<span class="${cls}" title="${esc(m.label)}${m.details.length > 1 ? ' (' + m.details.length + ' item)' : ''}">${esc(m.label)}</span>`;
+    }).join(' ');
+
+    const detailRows = s.materials.map(m => `
+      <tr>
+        <td>${esc(m.label)}</td>
+        <td>${m.details.map(d => esc(d.subDesain || '—') + ' (qty ' + d.qty + ')').join('<br>')}</td>
+        <td>${m.confirmed ? `<span class="badge badge-done">Terpasang</span>` : `<span class="badge badge-notdone">Belum</span>`}</td>
+        <td>${m.tanggal ? esc(m.tanggal) : '—'}</td>
+      </tr>
+    `).join('');
+
+    return `
+    <tr>
+      <td><button class="btn btn-sm" onclick="toggleFbeExpand('${esc(s.plantCode)}')">&#x25BC;</button></td>
+      <td><strong>${esc(s.plantCode)}</strong></td>
+      <td>${esc(s.namaToko)}</td>
+      <td>${esc(s.region)}</td>
+      <td>${s.doneCount}/${s.totalCount} (${s.scorePct}%)</td>
+      <td>${chips}</td>
+      <td>
+        <button class="btn btn-sm btn-teal" ${complete ? '' : 'title="Sebagian materi belum terkonfirmasi — report tetap bisa didownload"'}
+          onclick="downloadFbeReport('${esc(s.plantCode)}')">&#x1F4E5; Download</button>
+      </td>
+    </tr>
+    <tr id="${rowId}" class="fbe-expand-row" style="display:none">
+      <td colspan="7">
+        <table class="fbe-material-detail"><thead><tr><th>Materi</th><th>Detail</th><th>Status</th><th>Tanggal</th></tr></thead>
+        <tbody>${detailRows}</tbody></table>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleFbeExpand(plantCode) {
+  const row = document.getElementById('fbe-row-' + plantCode);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+// ── EXPORT EXCEL ─────────────────────────────────────────────────────
+function exportFbeExcel() {
+  if (!fbeStoreStatus.length) { toast('Tidak ada data', 'error'); return; }
+  const rows = getFilteredFbeStores();
+
+  const data = [
+    ['Plant Code', 'Nama Toko', 'Region', 'Kota', 'Jenis Materi', 'Sub-Desain', 'Status', 'Tanggal Terpasang'],
+  ];
+  rows.forEach(s => {
+    s.materials.forEach(m => {
+      const subDesains = m.details.map(d => d.subDesain).filter(Boolean).join('; ') || '—';
+      data.push([s.plantCode, s.namaToko, s.region, s.kota, m.label, subDesains, m.confirmed ? 'Terpasang' : 'Belum Terpasang', m.tanggal || '']);
+    });
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:35},{wch:12},{wch:18},{wch:22},{wch:30},{wch:16},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws, 'FBE Materials');
+
+  const name = fbeCurrentCampaign ? fbeCurrentCampaign.name : 'FBE';
+  XLSX.writeFile(wb, `FBE_${name.replace(/[^a-zA-Z0-9]/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('Excel FBE berhasil di-download');
+  addLog('system', 'FBE Export Excel: ' + name);
+}
