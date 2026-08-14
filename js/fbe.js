@@ -251,19 +251,58 @@ function buildFbeMsg(storeName, plantCode, materialLabel, campaignName, formLink
     `Terima kasih! 🙏`;
 }
 
-async function scanAndRemindFbe() {
-  if (!fbeCurrentCampaign) { toast('Pilih campaign FBE', 'error'); return; }
-  if (!settings.fonnteToken) { toast('Set Fonnte Token!', 'error'); return; }
+// Kumpulan (toko, materi) yang lagi ditampilkan di modal preview — dibangun
+// sekali saat modal dibuka (snapshot), lalu dipakai lagi saat user klik
+// "Kirim Semua" supaya tidak perlu scan ulang state yang mungkin berubah
+// selagi modal terbuka.
+let _fbePendingReminders = [];
 
+function _fbeScanPendingReminders() {
   const pending = [];
   fbeStoreStatus.forEach(s => {
     const sl = getSL(s.plantCode);
     if (!sl) return;
     s.materials.forEach(m => { if (!m.confirmed) pending.push({ store: s, material: m, sl }); });
   });
+  return pending;
+}
 
+// ── PREVIEW sebelum kirim massal ──────────────────────────────────
+// Tombol "Scan & Kirim Reminder" tidak langsung kirim — buka modal berisi
+// isi pesan lengkap tiap (toko, materi) dulu, baru kirim semua kalau user
+// menekan "Kirim Semua via WhatsApp" di modal itu.
+function openFbeRemindPreview() {
+  if (!fbeCurrentCampaign) { toast('Pilih campaign FBE', 'error'); return; }
+  if (!settings.fonnteToken) { toast('Set Fonnte Token!', 'error'); return; }
+
+  const pending = _fbeScanPendingReminders();
   if (!pending.length) { toast('Tidak ada materi belum terpasang dengan SL terdaftar', 'warn'); return; }
-  if (!confirm(`Kirim ${pending.length} reminder (per materi) ke Store Leader?`)) return;
+
+  _fbePendingReminders = pending;
+
+  document.getElementById('fbe-remind-summary').textContent =
+    `${pending.length} reminder (per materi) akan dikirim ke ${new Set(pending.map(p => p.sl.phone)).size} nomor WhatsApp Store Leader:`;
+
+  document.getElementById('fbe-remind-list').innerHTML = pending.map(p => {
+    const formLink = _fbeFormLinkForMaterial(fbeCurrentCampaign, p.material.jenisMateri);
+    const msg = buildFbeMsg(p.store.namaToko, p.store.plantCode, p.material.label, fbeCurrentCampaign.name, formLink);
+    return `
+      <div style="border:1px solid var(--border2);border-radius:var(--r-sm);padding:12px">
+        <div style="font-weight:700;font-size:12.5px;margin-bottom:2px">${esc(p.store.namaToko)} (${esc(p.store.plantCode)}) — ${esc(p.material.label)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">WA Store Leader: ${esc(p.sl.phone)}</div>
+        <div class="msg-preview" style="max-height:none"><div class="wa-bubble">${esc(msg).replace(/\n/g, '<br>')}</div></div>
+      </div>`;
+  }).join('');
+
+  openModal('modal-fbe-remind');
+}
+
+async function confirmSendFbeReminders() {
+  const pending = _fbePendingReminders;
+  if (!pending.length) { closeModal('modal-fbe-remind'); return; }
+
+  const btn = document.getElementById('fbe-remind-send-btn');
+  if (btn) btn.disabled = true;
 
   let sent = 0;
   const cid = fbeCurrentCampaign.id;
@@ -281,5 +320,9 @@ async function scanAndRemindFbe() {
     await new Promise(r => setTimeout(r, REMINDER_DELAY_MS));
   }
   save(SK.reminders, reminderHistory);
+
+  if (btn) btn.disabled = false;
+  _fbePendingReminders = [];
+  closeModal('modal-fbe-remind');
   toast(`${sent}/${pending.length} reminder terkirim`);
 }

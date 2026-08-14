@@ -171,7 +171,7 @@
           </select>
           <input type="text" id="fbe-search" placeholder="Cari toko / plant code..." oninput="renderFbeTable()">
           <button class="btn btn-sm" onclick="exportFbeExcel()">&#x1F4E5; Export Excel</button>
-          <button class="btn btn-sm btn-orange" onclick="scanAndRemindFbe()">&#x1F4E8; Scan &amp; Kirim Reminder</button>
+          <button class="btn btn-sm btn-orange" onclick="openFbeRemindPreview()">&#x1F4E8; Scan &amp; Kirim Reminder</button>
         </div>
 
         <div class="kpi-row" id="fbe-kpi-row" style="display:none">
@@ -855,6 +855,16 @@ Link form: {link_form}</textarea></div>
     <div class="form-group"><label>Preview</label><div class="msg-preview" id="send-preview"></div></div>
   </div>
   <div class="modal-foot"><button class="btn" onclick="closeModal('modal-send')">Batal</button><button class="btn btn-green" onclick="confirmSendReminder()">Kirim via WhatsApp</button></div>
+</div></div>
+
+<!-- ===== MODAL: PREVIEW REMINDER FBE (sebelum kirim massal) ===== -->
+<div class="modal-overlay" id="modal-fbe-remind"><div class="modal" style="max-width:640px">
+  <div class="modal-head"><h2>Preview Reminder FBE</h2><button class="modal-close" onclick="closeModal('modal-fbe-remind')">&times;</button></div>
+  <div class="modal-body">
+    <div class="hint" id="fbe-remind-summary" style="margin-bottom:12px"></div>
+    <div id="fbe-remind-list" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+  <div class="modal-foot"><button class="btn" onclick="closeModal('modal-fbe-remind')">Batal</button><button class="btn btn-green" id="fbe-remind-send-btn" onclick="confirmSendFbeReminders()">Kirim Semua via WhatsApp</button></div>
 </div></div>
 
 <!-- ===== EXTERNAL LIBRARIES ===== -->
