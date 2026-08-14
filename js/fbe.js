@@ -28,23 +28,42 @@ async function loadFbePage(cid) {
       fbeCurrentCampaign = campaigns.find(x => x.id === cid) || c;
     }
 
-    // Realita lapangan: 5 sheet konfirmasi terpisah per grup materi
-    // (lihat FBE_CONFIRM_GROUPS) — fetch semuanya paralel, gabung hasilnya.
     const confirmSheets = fbeCurrentCampaign.confirmSheets || {};
-    const confirmResults = await Promise.all(
-      Object.keys(FBE_CONFIRM_GROUPS).map(async group => {
-        const sheetCfg = confirmSheets[group];
-        if (!sheetCfg || !sheetCfg.sheetId) return [];
+    let confirmRows;
+
+    if (fbeCurrentCampaign.scoringMode) {
+      // Scoring Visibility FBE: 1 form gabungan, ke-6 materi wajib diisi
+      // sekaligus per submission — lihat parseFbeScoringConfirmation().
+      const sheetCfg = confirmSheets.SCORING;
+      if (sheetCfg && sheetCfg.sheetId) {
         try {
           const rows = await fetchSheet(sheetCfg.sheetId, sheetCfg.sheetName || DEFAULT_FBE_CONFIRM_SHEET_NAME);
-          return parseFbeSimpleConfirmation(rows, FBE_CONFIRM_GROUPS[group].materials);
+          confirmRows = parseFbeScoringConfirmation(rows);
         } catch (e) {
-          console.warn('[FBE] fetch konfirmasi gagal untuk grup', group, e);
-          return [];
+          console.warn('[FBE] fetch konfirmasi scoring gagal', e);
+          confirmRows = [];
         }
-      })
-    );
-    const confirmRows = confirmResults.flat();
+      } else {
+        confirmRows = [];
+      }
+    } else {
+      // Realita lapangan: 5 sheet konfirmasi terpisah per grup materi
+      // (lihat FBE_CONFIRM_GROUPS) — fetch semuanya paralel, gabung hasilnya.
+      const confirmResults = await Promise.all(
+        Object.keys(FBE_CONFIRM_GROUPS).map(async group => {
+          const sheetCfg = confirmSheets[group];
+          if (!sheetCfg || !sheetCfg.sheetId) return [];
+          try {
+            const rows = await fetchSheet(sheetCfg.sheetId, sheetCfg.sheetName || DEFAULT_FBE_CONFIRM_SHEET_NAME);
+            return parseFbeSimpleConfirmation(rows, FBE_CONFIRM_GROUPS[group].materials);
+          } catch (e) {
+            console.warn('[FBE] fetch konfirmasi gagal untuk grup', group, e);
+            return [];
+          }
+        })
+      );
+      confirmRows = confirmResults.flat();
+    }
 
     fbeStoreStatus = computeFbeStoreStatus(fbeCurrentCampaign.localStores, confirmRows);
 
@@ -217,8 +236,10 @@ function exportFbeExcel() {
 // ── REMINDER (per materi, bukan per toko) ────────────────────────────
 // Tiap grup materi (lihat FBE_CONFIRM_GROUPS) punya Google Form sendiri,
 // jadi reminder harus kirim link form yang sesuai grup materi tsb — bukan
-// 1 link generik untuk semua materi.
+// 1 link generik untuk semua materi. Scoring Visibility FBE beda: cuma 1
+// form gabungan untuk semua materi, jadi pakai formLink generik campaign.
 function _fbeFormLinkForMaterial(campaign, materialKey) {
+  if (campaign.scoringMode) return campaign.formLink || '';
   const group = Object.keys(FBE_CONFIRM_GROUPS).find(g => FBE_CONFIRM_GROUPS[g].materials.includes(materialKey));
   return (group && campaign.formLinks && campaign.formLinks[group]) || '';
 }

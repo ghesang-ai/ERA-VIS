@@ -235,6 +235,46 @@ function parseFbeSimpleConfirmation(rows, materialKeys) {
   return out;
 }
 
+// ── SHEET KONFIRMASI SCORING VISIBILITY FBE (1 form gabungan) ──────
+// Beda dari parseFbeSimpleConfirmation(): di sini 1 submission = 1 toko
+// dengan 6 KOLOM FOTO BERBEDA sekaligus (Easel & Poster, Hanging Mobile,
+// Hanging Gate, POI, Signboard, Spanduk — semuanya wajib diisi, bukan
+// fan-out 1 link foto yang sama ke banyak materi). Tiap kolom foto
+// diproses independen: kolom yang terisi -> 1 baris konfirmasi long-
+// format untuk materi itu.
+const FBE_SCORING_COLUMNS = [
+  { key: 'EASEL_POSTER',   match: h => h.includes('easel') },
+  { key: 'HANGING_MOBILE', match: h => h.includes('hanging mobile') },
+  { key: 'HANGING_GATE',   match: h => h.includes('hanging gate') },
+  { key: 'POI',            match: h => h.includes('poi') },
+  { key: 'SIGNBOARD',      match: h => h.includes('signboard') },
+  { key: 'SPANDUK',        match: h => h.includes('spanduk') },
+];
+function parseFbeScoringConfirmation(rows) {
+  if (!rows || rows.length < 2) return [];
+  const header = rows[0].map(_fbeNorm);
+  const iTime = header.findIndex(h => h.includes('timestamp'));
+  const iCode = header.findIndex(h => h.includes('kode store') || h.includes('kode toko'));
+  if (iCode < 0) return [];
+
+  const colIdx = FBE_SCORING_COLUMNS.map(c => ({ key: c.key, idx: header.findIndex(c.match) }));
+
+  const out = [];
+  rows.slice(1).forEach(r => {
+    const code = extractPlantCode(r[iCode]);
+    if (!code) return;
+    const timestamp = iTime >= 0 ? String(r[iTime] || '').trim() : '';
+
+    colIdx.forEach(({ key, idx }) => {
+      if (idx < 0) return;
+      const linkFoto = String(r[idx] || '').trim();
+      if (!linkFoto) return;
+      out.push({ plantCode: code, jenisMateri: key, status: 'Terpasang', tanggal: timestamp, linkFoto });
+    });
+  });
+  return out;
+}
+
 // ── JOIN: alokasi master ⋈ konfirmasi → status per toko ────────────
 // Kelompokkan baris master long-format berdasarkan (toko, kategori
 // materi) — BUKAN per baris sub-desain, lihat catatan desain di atas —
@@ -294,5 +334,5 @@ function computeFbeStoreStatus(masterRows, confirmationRows) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile, parseFbeConfirmation, parseFbeSimpleConfirmation, computeFbeStoreStatus };
+  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile, parseFbeConfirmation, parseFbeSimpleConfirmation, parseFbeScoringConfirmation, computeFbeStoreStatus };
 }
