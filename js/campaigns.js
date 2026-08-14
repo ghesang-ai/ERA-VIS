@@ -673,13 +673,15 @@ async function saveCampaign() {
     obj = { mode:'sheet', spreadsheetId:sid, masterSheet:ms, importSheet:is, headerRow:hr };
   }
 
+  let savedId = eid;
   if (eid) {
     const i = campaigns.findIndex(x => x.id === eid);
     if (i >= 0) campaigns[i] = { ...campaigns[i], name, formLink:fl, deadline:dl, status:st, ...obj };
     toast('Campaign diupdate');
   } else {
+    savedId = 'c_' + Date.now();
     campaigns.push({
-      id: 'c_' + Date.now(), name, formLink:fl, deadline:dl,
+      id: savedId, name, formLink:fl, deadline:dl,
       status:st, brand: _activeBrand, createdAt: new Date().toISOString(), ...obj,
     });
     toast('Campaign ditambahkan!');
@@ -695,6 +697,29 @@ async function saveCampaign() {
   // push ke cloud tetap jalan sebagai jalur penyelamatan.
   try { save(SK.campaigns, campaigns); }
   catch (e) { console.warn('[ERA-VIS] localStorage penuh saat simpan campaign:', e.message); }
+
+  // pushCampaignsToCloud() mengirim ULANG localStores SEMUA campaign
+  // (52+ campaign, beberapa ribuan baris) tiap kali dipanggil — kalau user
+  // refresh/pindah halaman sebelum batch besar itu selesai, campaign yang
+  // BARU DISIMPAN bisa jadi salah satu yang belum kebagian giliran push dan
+  // datanya tidak pernah sampai ke cloud (persis kejadian nyata: campaign
+  // "Scoring Visibility FBE" metadata-nya ke-push tapi localStores-nya
+  // tidak). Push data campaign yang BARU DISIMPAN INI secara langsung &
+  // ditunggu dulu (prioritas), baru lanjut bulk sync sisanya di background.
+  if (obj.localStores && obj.localStores.length) {
+    const justSaved = campaigns.find(x => x.id === savedId);
+    if (justSaved) {
+      try {
+        await fetch(STORE_SYNC_PROXY, {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body   : JSON.stringify({ id: savedId, localStores: _minStoresForSync(justSaved) }),
+        });
+      } catch (e) {
+        console.warn('[ERA-VIS] push langsung localStores gagal untuk', savedId, e.message);
+      }
+    }
+  }
   pushCampaignsToCloud();
   closeModal('modal-add');
   renderCampaignList();
