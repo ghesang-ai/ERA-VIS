@@ -87,6 +87,7 @@ async function _fetchWrData(filters) {
   const periodInfo = WR_PERIOD_MONTH[filters.period] || WR_PERIOD_MONTH['current'];
   const activeCampaigns = (typeof campaigns !== 'undefined' ? campaigns : [])
     .filter(c => {
+      if (c.fbeMode) return false;
       if (c.status === 'ended') return false;
       if (!c.deadline) return true; // tanpa deadline selalu ikut
       const dl = new Date(c.deadline + 'T00:00:00');

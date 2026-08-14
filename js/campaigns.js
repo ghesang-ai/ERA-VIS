@@ -125,7 +125,7 @@ function _campRenderCard(c) {
       <button class="del-btn" title="Hapus" onclick="deleteCampaign('${c.id}')">✕</button>
     </div>
     <div class="campaign-badge ${c.status || 'active'}">${c.status === 'ended' ? 'Ended' : 'Active'}</div>
-    <div class="campaign-name">${esc(c.name)}${modeTag}</div>
+    <div class="campaign-name">${esc(c.name)}${modeTag}${c.fbeMode ? `<span class="badge badge-purple" style="margin-left:6px">FBE · ${(c.materials||[]).length} materi</span>` : ''}</div>
     <div style="margin-bottom:8px">${_campDeadlineBadge(c)}</div>
     <div class="campaign-meta">
       ${c.formLink ? `<a href="${esc(c.formLink)}" target="_blank">Form</a> · ` : ''}${storeMeta}
@@ -236,11 +236,27 @@ function populateAllSelects() {
     if (!s) return;
     const v = s.value;
     s.innerHTML = '<option value="">-- Pilih Campaign --</option>';
-    campaigns.forEach(c => {
+    // Campaign FBE pakai array localStores long-format (banyak baris
+    // per plantCode) yang bertentangan dengan asumsi "1 baris = 1 toko"
+    // di sanitizeStores()/mergeStatusFromImport() yang dipakai semua
+    // halaman di bawah ini — FBE dapat halaman sendiri (js/fbe.js).
+    // Lihat plan Task 5.
+    campaigns.filter(c => !c.fbeMode).forEach(c => {
       s.innerHTML += `<option value="${c.id}">${esc(c.name)}${c.status === 'ended' ? ' (Ended)' : ''}</option>`;
     });
     s.value = v;
   });
+}
+
+function populateFbeSelect() {
+  const s = document.getElementById('fbe-campaign-select');
+  if (!s) return;
+  const v = s.value;
+  s.innerHTML = '<option value="">-- Pilih Campaign FBE --</option>';
+  campaigns.filter(c => c.fbeMode).forEach(c => {
+    s.innerHTML += `<option value="${c.id}">${esc(c.name)}${c.status === 'ended' ? ' (Ended)' : ''}</option>`;
+  });
+  s.value = v;
 }
 
 
@@ -257,6 +273,13 @@ function openAddCampaign() {
   document.getElementById('inp-status').value            = 'active';
   document.getElementById('inp-spreadsheet').value       = '';
   _excelWB = null;
+  _fbeFiles = {};
+  Object.keys(FBE_MATERIALS).forEach(key => {
+    const el = document.getElementById('fbe-status-' + key);
+    if (el) el.innerHTML = '';
+    const fi = document.getElementById('fbe-file-' + key);
+    if (fi) fi.value = '';
+  });
   document.getElementById('dropzone').className          = 'dropzone';
   document.getElementById('dropzone-label').textContent  = 'Klik atau drag & drop file Excel di sini';
   document.getElementById('excel-sheet-select').style.display = 'none';
@@ -280,7 +303,20 @@ function openEditCampaign(id) {
   document.getElementById('inp-status').value            = c.status    || 'active';
   _excelWB = null;
 
-  if (c.mode === 'excel') {
+  if (c.fbeMode) {
+    switchCampaignMode('fbe');
+    _fbeFiles = {};
+    document.getElementById('inp-response-sheet-fbe').value = c.responseSheetId || '';
+    document.getElementById('inp-import-sheet-fbe').value   = c.importSheet || 'Form Responses 1';
+    (c.materials || []).forEach(key => {
+      const rowsForMaterial = (c.localStores || []).filter(r => r.jenisMateri === key || (key === 'STICKER_KACA' && ['STICKER_KACA','FRAME_HANGING_LFD','FRAME_STANDING_LFD'].includes(r.jenisMateri)));
+      const el = document.getElementById('fbe-status-' + key);
+      if (el && rowsForMaterial.length) {
+        const uniqueStores = new Set(rowsForMaterial.map(r => r.plantCode)).size;
+        el.innerHTML = `<span style="color:var(--teal)">&#x2713; ${uniqueStores} toko tersimpan — upload ulang untuk ganti</span>`;
+      }
+    });
+  } else if (c.mode === 'excel') {
     switchCampaignMode('excel');
     document.getElementById('inp-response-sheet').value     = c.responseSheetId || '';
     document.getElementById('inp-import-sheet-excel').value = c.importSheet || DEFAULT_IMPORT_SHEET;
@@ -306,8 +342,10 @@ function switchCampaignMode(mode) {
   document.getElementById('inp-mode').value = mode;
   document.getElementById('mode-btn-excel').classList.toggle('active', mode === 'excel');
   document.getElementById('mode-btn-sheet').classList.toggle('active', mode === 'sheet');
+  document.getElementById('mode-btn-fbe').classList.toggle('active', mode === 'fbe');
   document.getElementById('mode-excel-fields').style.display = mode === 'excel' ? '' : 'none';
   document.getElementById('mode-sheet-fields').style.display = mode === 'sheet' ? '' : 'none';
+  document.getElementById('mode-fbe-fields').style.display   = mode === 'fbe'   ? '' : 'none';
 }
 
 
@@ -382,6 +420,39 @@ function getStoresFromSheets(sheetNames) {
 }
 
 
+// ── HANDLER FILE MATERI FBE ─────────────────────────────────────────
+// Dikunci per key FBE_MATERIALS ('STICKER_KACA' mencakup file gabungan
+// Sticker Kaca / Frame Hanging LFD / Frame Standing LFD).
+let _fbeFiles = {}; // { [materialKey]: { name, rows: long-format[] } }
+
+function handleFbeMaterialFile(materialKey, file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const sheetName = wb.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+      const parsed = materialKey === 'STICKER_KACA'
+        ? parseFbeStickerKacaFile(rows)
+        : parseFbeMaterialFile(rows, materialKey);
+      if (!parsed.length) {
+        document.getElementById('fbe-status-' + materialKey).innerHTML =
+          '<span style="color:var(--red)">&#x26A0; Tidak ada data toko ditemukan di ' + esc(file.name) + '</span>';
+        return;
+      }
+      _fbeFiles[materialKey] = { name: file.name, rows: parsed };
+      const uniqueStores = new Set(parsed.map(r => r.plantCode)).size;
+      document.getElementById('fbe-status-' + materialKey).innerHTML =
+        `<span style="color:var(--teal)">&#x2713; ${esc(file.name)} — ${uniqueStores} toko</span>`;
+    } catch (err) {
+      toast('Gagal baca Excel (' + materialKey + '): ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+
 // ── SAVE CAMPAIGN ──────────────────────────────────────────────────
 async function saveCampaign() {
   const mode = document.getElementById('inp-mode').value;
@@ -395,7 +466,35 @@ async function saveCampaign() {
 
   let obj = {};
 
-  if (mode === 'excel') {
+  if (mode === 'fbe') {
+    const respRaw = document.getElementById('inp-response-sheet-fbe').value.trim();
+    const respId  = extractSheetId(respRaw);
+    const is      = document.getElementById('inp-import-sheet-fbe').value.trim() || 'Form Responses 1';
+
+    let localStores = [];
+    const materials = [];
+    Object.keys(FBE_MATERIALS).forEach(key => {
+      if (_fbeFiles[key] && _fbeFiles[key].rows.length) {
+        localStores = localStores.concat(_fbeFiles[key].rows);
+        const presentKeys = new Set(_fbeFiles[key].rows.map(r => r.jenisMateri));
+        presentKeys.forEach(k => { if (!materials.includes(k)) materials.push(k); });
+      }
+    });
+
+    if (!localStores.length && eid) {
+      // Edit tanpa upload ulang file apa pun — pertahankan localStores yang sudah ada.
+      const existing = campaigns.find(x => x.id === eid);
+      if (existing && existing.localStores && existing.localStores.length) {
+        localStores = existing.localStores;
+        materials.push(...(existing.materials || []));
+      }
+    }
+
+    if (!localStores.length) { toast('Upload minimal 1 file materi FBE', 'error'); return; }
+
+    obj = { mode:'excel', fbeMode:true, localStores, materials, responseSheetId:respId, importSheet:is, spreadsheetId:respId, masterSheet:'', headerRow: DEFAULT_HEADER_ROW };
+
+  } else if (mode === 'excel') {
     const respRaw = document.getElementById('inp-response-sheet').value.trim();
     const respId  = extractSheetId(respRaw);
     const is      = document.getElementById('inp-import-sheet-excel').value.trim() || DEFAULT_IMPORT_SHEET;
@@ -460,6 +559,7 @@ async function saveCampaign() {
   closeModal('modal-add');
   renderCampaignList();
   populateAllSelects();
+  populateFbeSelect();
 }
 
 
@@ -515,6 +615,7 @@ async function syncCampaignsFromCloud() {
     // Buang sisa baris non-toko dari data lama (lokal maupun cloud)
     await cleanupStoredCampaigns();
     populateAllSelects();
+    populateFbeSelect();
     renderCampaignList();
     return true;
   } catch (e) {
@@ -527,6 +628,34 @@ async function syncCampaignsFromCloud() {
 // - Metadata (tanpa localStores) → Apps Script via SYNC_PROXY
 // - localStores → Netlify Blobs via /store-sync (terpisah, tidak ada size limit)
 const STORE_SYNC_PROXY = '/.netlify/functions/store-sync';
+
+// Proyeksikan localStores jadi bentuk minimal untuk push ke Netlify Blobs.
+// Field long-format FBE beda dari field campaign excel biasa (namaToko/kota,
+// bukan plantDesc/city) dan wajib menyertakan jenisMateri/subDesain/qty —
+// kalau dipetakan pakai bentuk excel biasa, info materinya hilang total.
+function _minStoresForSync(c) {
+  return c.fbeMode
+    ? c.localStores.map(s => ({
+        plantCode  : s.plantCode,
+        namaToko   : s.namaToko,
+        region     : s.region,
+        kota       : s.kota,
+        jenisMateri: s.jenisMateri,
+        subDesain  : s.subDesain || '',
+        qty        : s.qty || 1,
+        noResi     : s.noResi || '',
+        statusResi : s.statusResi || '',
+        pic        : s.pic || '',
+        kontak     : s.kontak || '',
+      }))
+    : c.localStores.map(s => ({
+        plantCode: s.plantCode,
+        plantDesc: s.plantDesc,
+        region   : s.region,
+        city     : s.city,
+        nomorResi: s.nomorResi || '',
+      }));
+}
 
 async function pushCampaignsToCloud() {
   // Kirim metadata saja ke Apps Script (strip localStores agar tidak melebihi limit)
@@ -548,13 +677,7 @@ async function pushCampaignsToCloud() {
   // Kirim localStores tiap Excel campaign ke Netlify Blobs
   const excelCampaigns = campaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
   await Promise.all(excelCampaigns.map(async c => {
-    const minStores = c.localStores.map(s => ({
-      plantCode: s.plantCode,
-      plantDesc: s.plantDesc,
-      region   : s.region,
-      city     : s.city,
-      nomorResi: s.nomorResi || '',
-    }));
+    const minStores = _minStoresForSync(c);
     try {
       await fetch(STORE_SYNC_PROXY, {
         method : 'POST',
@@ -584,7 +707,11 @@ async function pullLocalStoresFromCloud() {
         console.warn('[ERA-VIS] localStores pull gagal untuk', c.id, 'HTTP', res.status);
         return;
       }
-      const stores = sanitizeStores(await res.json());
+      // Campaign FBE sengaja punya banyak baris per plantCode (long-format,
+      // 1 baris = 1 toko + 1 materi) — sanitizeStores() akan menghapus baris
+      // itu sebagai "duplikat", jadi jangan dipakai untuk campaign FBE.
+      const raw    = await res.json();
+      const stores = c.fbeMode ? raw : sanitizeStores(raw);
       if (stores.length) {
         const idx = campaigns.findIndex(x => x.id === c.id);
         if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores: stores };
@@ -624,13 +751,7 @@ async function pushMissingLocalStores() {
   if (!missing.length) return 0;
 
   await Promise.all(missing.map(async c => {
-    const minStores = c.localStores.map(s => ({
-      plantCode: s.plantCode,
-      plantDesc: s.plantDesc,
-      region   : s.region,
-      city     : s.city,
-      nomorResi: s.nomorResi || '',
-    }));
+    const minStores = _minStoresForSync(c);
     try {
       const res = await fetch(STORE_SYNC_PROXY, {
         method : 'POST',
@@ -657,7 +778,10 @@ async function cleanupStoredCampaigns() {
   const cleanedIds = [];
 
   campaigns = campaigns.map(c => {
-    if (c.mode !== 'excel' || !Array.isArray(c.localStores) || !c.localStores.length) return c;
+    // Campaign FBE sengaja punya banyak baris per plantCode (long-format) —
+    // sanitizeStores() akan menghapus baris "duplikat" itu dan merusak data
+    // multi-materi, jadi cleanup ini dilewati untuk campaign FBE.
+    if (c.fbeMode || c.mode !== 'excel' || !Array.isArray(c.localStores) || !c.localStores.length) return c;
     const clean = sanitizeStores(c.localStores);
     if (clean.length === c.localStores.length) return c;
     console.log(`[ERA-VIS] ${c.localStores.length - clean.length} baris non-toko dibuang dari "${c.name}"`);
@@ -673,13 +797,7 @@ async function cleanupStoredCampaigns() {
   await Promise.all(cleanedIds.map(async id => {
     const c = campaigns.find(x => x.id === id);
     if (!c) return;
-    const minStores = c.localStores.map(s => ({
-      plantCode: s.plantCode,
-      plantDesc: s.plantDesc,
-      region   : s.region,
-      city     : s.city,
-      nomorResi: s.nomorResi || '',
-    }));
+    const minStores = _minStoresForSync(c);
     try {
       await fetch(STORE_SYNC_PROXY, {
         method : 'POST',
@@ -710,17 +828,7 @@ function shareCampaignsUrl() {
     // Minify localStores untuk Excel campaigns agar URL tidak terlalu panjang
     const data = campaigns.map(c => {
       if (c.mode === 'excel' && c.localStores && c.localStores.length) {
-        return {
-          ...c,
-          localStores: c.localStores.map(s => ({
-            plantCode : s.plantCode,
-            plantDesc : s.plantDesc,
-            region    : s.region,
-            city      : s.city,
-            status    : s.status || '',
-            nomorResi : s.nomorResi || '',
-          }))
-        };
+        return { ...c, localStores: _minStoresForSync(c) };
       }
       return c;
     });
@@ -794,6 +902,7 @@ function importCampaigns() {
         save(SK.campaigns, campaigns);
         renderCampaignList();
         populateAllSelects();
+        populateFbeSelect();
         toast(added + ' campaign baru, ' + updated + ' diupdate');
         addLog('system', 'Import ' + imported.length + ' campaigns');
       } catch (err) {
@@ -823,6 +932,7 @@ function deleteCampaign(id) {
   fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
   renderCampaignList();
   populateAllSelects();
+  populateFbeSelect();
   toast('Campaign dihapus');
   addLog('system', 'Hapus campaign: ' + (c ? c.name : id));
 }

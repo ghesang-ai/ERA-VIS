@@ -129,10 +129,13 @@ async function _fetchVmdMatrix(monthKey, regionKey) {
   const all  = (typeof campaigns !== 'undefined' ? campaigns : []);
 
   // Campaign yang aktif di bulan ini (berdasarkan deadline)
-  let monthCampaigns = all.filter(c => _vmdCampaignInMonth(c, info.num, info.year));
+  // fbeMode dikecualikan: localStores long-format-nya (banyak baris per
+  // plantCode) akan collapse jadi 1 sel DONE/NOT-DONE yang salah lewat
+  // mergeStatusFromImport() di _vmdCampaignStores() di bawah.
+  let monthCampaigns = all.filter(c => !c.fbeMode && _vmdCampaignInMonth(c, info.num, info.year));
   // Fallback: jika tidak ada match & bulan = current, pakai semua campaign aktif
   if (monthCampaigns.length === 0 && monthKey === 'current') {
-    monthCampaigns = all.filter(c => c.status !== 'ended');
+    monthCampaigns = all.filter(c => c.status !== 'ended' && !c.fbeMode);
   }
 
   const cols = monthCampaigns.map(c => ({ id: c.id, name: c.name, short: _vmdColLabel(c) }));
