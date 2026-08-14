@@ -203,3 +203,43 @@ function exportFbeExcel() {
   toast('Excel FBE berhasil di-download');
   addLog('system', 'FBE Export Excel: ' + name);
 }
+
+// ── REMINDER (per materi, bukan per toko) ────────────────────────────
+function buildFbeMsg(storeName, plantCode, materialLabel, campaignName, formLink) {
+  return `Halo Store Leader *${storeName}* (${plantCode}),\n\n` +
+    `Materi *${materialLabel}* untuk campaign *${campaignName}* belum terkonfirmasi terpasang.\n` +
+    `Mohon segera pasang dan submit dokumentasi via form:\n${formLink || '(link form belum diset)'}\n\n` +
+    `Terima kasih! 🙏`;
+}
+
+async function scanAndRemindFbe() {
+  if (!fbeCurrentCampaign) { toast('Pilih campaign FBE', 'error'); return; }
+  if (!settings.fonnteToken) { toast('Set Fonnte Token!', 'error'); return; }
+
+  const pending = [];
+  fbeStoreStatus.forEach(s => {
+    const sl = getSL(s.plantCode);
+    if (!sl) return;
+    s.materials.forEach(m => { if (!m.confirmed) pending.push({ store: s, material: m, sl }); });
+  });
+
+  if (!pending.length) { toast('Tidak ada materi belum terpasang dengan SL terdaftar', 'warn'); return; }
+  if (!confirm(`Kirim ${pending.length} reminder (per materi) ke Store Leader?`)) return;
+
+  let sent = 0;
+  const cid = fbeCurrentCampaign.id;
+  for (const p of pending) {
+    const msg = buildFbeMsg(p.store.namaToko, p.store.plantCode, p.material.label, fbeCurrentCampaign.name, fbeCurrentCampaign.formLink || '');
+    const ok  = await sendViaFonnte(p.sl.phone, msg, settings);
+    if (ok) {
+      sent++;
+      const key = p.store.plantCode + '|' + p.material.jenisMateri;
+      if (!reminderHistory[cid]) reminderHistory[cid] = {};
+      reminderHistory[cid][key] = { level: 1, sentAt: new Date().toISOString(), phone: p.sl.phone };
+      addLog('reminder', `[FBE] ${p.material.label} to ${p.store.namaToko} (${p.sl.phone})`);
+    }
+    await new Promise(r => setTimeout(r, REMINDER_DELAY_MS));
+  }
+  save(SK.reminders, reminderHistory);
+  toast(`${sent}/${pending.length} reminder terkirim`);
+}
