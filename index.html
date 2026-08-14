@@ -721,6 +721,7 @@ Link form: {link_form}</textarea></div>
     <div class="mode-toggle">
       <button class="mode-btn active" id="mode-btn-excel" onclick="switchCampaignMode('excel')">&#x1F4CE; Upload Excel (Baru)</button>
       <button class="mode-btn" id="mode-btn-sheet" onclick="switchCampaignMode('sheet')">&#x1F517; Google Sheets (Lama)</button>
+      <button class="mode-btn" id="mode-btn-fbe" onclick="switchCampaignMode('fbe')">&#x1F389; FBE Multi-Material</button>
     </div>
     <div class="form-group"><label>Nama Campaign</label><input type="text" id="inp-name" placeholder="Hanging Mobile April 2026"></div>
     <div id="mode-excel-fields">
@@ -751,6 +752,16 @@ Link form: {link_form}</textarea></div>
       <div class="form-group"><label>Sheet — Importing</label><input type="text" id="inp-import-sheet" value="IMPORTING"></div>
       <div class="form-group"><label>Header Row</label><input type="number" id="inp-header-row" value="6"></div>
     </div>
+    <div id="mode-fbe-fields" style="display:none">
+      <div class="hint" style="margin-bottom:10px">Upload masing-masing file alokasi materi FBE (dari email). Kosongkan yang tidak ada — tidak semua toko dapat ke-7 materi.</div>
+      <div class="form-group"><label>Easel &amp; Poster</label><input type="file" id="fbe-file-EASEL_POSTER" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('EASEL_POSTER', this.files[0])"><div class="hint" id="fbe-status-EASEL_POSTER"></div></div>
+      <div class="form-group"><label>Hanging Gate</label><input type="file" id="fbe-file-HANGING_GATE" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('HANGING_GATE', this.files[0])"><div class="hint" id="fbe-status-HANGING_GATE"></div></div>
+      <div class="form-group"><label>Hanging Mobile Desain 1</label><input type="file" id="fbe-file-HANGING_MOBILE_1" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('HANGING_MOBILE_1', this.files[0])"><div class="hint" id="fbe-status-HANGING_MOBILE_1"></div></div>
+      <div class="form-group"><label>Hanging Mobile Desain 2</label><input type="file" id="fbe-file-HANGING_MOBILE_2" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('HANGING_MOBILE_2', this.files[0])"><div class="hint" id="fbe-status-HANGING_MOBILE_2"></div></div>
+      <div class="form-group"><label>Sticker Kaca &amp; Frame Hanging/Standing LFD</label><input type="file" id="fbe-file-STICKER_KACA" accept=".xlsx,.xls" onchange="handleFbeMaterialFile('STICKER_KACA', this.files[0])"><div class="hint" id="fbe-status-STICKER_KACA"></div></div>
+      <div class="form-group"><label>Link Google Sheet Respons Form (konfirmasi pemasangan)</label><input type="text" id="inp-response-sheet-fbe" placeholder="https://docs.google.com/spreadsheets/d/.../edit"><div class="hint">Response sheet dari Google Form konfirmasi — lihat field yang dibutuhkan di panduan.</div></div>
+      <div class="form-group"><label>Nama Sheet Response</label><input type="text" id="inp-import-sheet-fbe" value="Form Responses 1"></div>
+    </div>
     <div class="form-group"><label>Link Google Form</label><input type="text" id="inp-form-link" placeholder="https://forms.gle/..."></div>
     <div class="form-group"><label>Deadline</label><input type="date" id="inp-deadline"></div>
     <div class="form-group"><label>Status</label><select id="inp-status"><option value="active">Active</option><option value="ended">Ended</option></select></div>
@@ -777,6 +788,7 @@ Link form: {link_form}</textarea></div>
 <!-- ===== JS FILES ===== -->
 <script src="js/config.js"></script>
 <script src="js/api.js?v=20260803"></script>
+<script src="js/fbeImport.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/stores.js?v=20260406"></script>
 <script src="js/campaigns.js?v=20260803b"></script>

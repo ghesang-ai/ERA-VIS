@@ -262,6 +262,13 @@ function openAddCampaign() {
   document.getElementById('inp-status').value            = 'active';
   document.getElementById('inp-spreadsheet').value       = '';
   _excelWB = null;
+  _fbeFiles = {};
+  Object.keys(FBE_MATERIALS).forEach(key => {
+    const el = document.getElementById('fbe-status-' + key);
+    if (el) el.innerHTML = '';
+    const fi = document.getElementById('fbe-file-' + key);
+    if (fi) fi.value = '';
+  });
   document.getElementById('dropzone').className          = 'dropzone';
   document.getElementById('dropzone-label').textContent  = 'Klik atau drag & drop file Excel di sini';
   document.getElementById('excel-sheet-select').style.display = 'none';
@@ -285,7 +292,20 @@ function openEditCampaign(id) {
   document.getElementById('inp-status').value            = c.status    || 'active';
   _excelWB = null;
 
-  if (c.mode === 'excel') {
+  if (c.fbeMode) {
+    switchCampaignMode('fbe');
+    _fbeFiles = {};
+    document.getElementById('inp-response-sheet-fbe').value = c.responseSheetId || '';
+    document.getElementById('inp-import-sheet-fbe').value   = c.importSheet || 'Form Responses 1';
+    (c.materials || []).forEach(key => {
+      const rowsForMaterial = (c.localStores || []).filter(r => r.jenisMateri === key || (key === 'STICKER_KACA' && ['STICKER_KACA','FRAME_HANGING_LFD','FRAME_STANDING_LFD'].includes(r.jenisMateri)));
+      const el = document.getElementById('fbe-status-' + key);
+      if (el && rowsForMaterial.length) {
+        const uniqueStores = new Set(rowsForMaterial.map(r => r.plantCode)).size;
+        el.innerHTML = `<span style="color:var(--teal)">&#x2713; ${uniqueStores} toko tersimpan — upload ulang untuk ganti</span>`;
+      }
+    });
+  } else if (c.mode === 'excel') {
     switchCampaignMode('excel');
     document.getElementById('inp-response-sheet').value     = c.responseSheetId || '';
     document.getElementById('inp-import-sheet-excel').value = c.importSheet || DEFAULT_IMPORT_SHEET;
@@ -311,8 +331,10 @@ function switchCampaignMode(mode) {
   document.getElementById('inp-mode').value = mode;
   document.getElementById('mode-btn-excel').classList.toggle('active', mode === 'excel');
   document.getElementById('mode-btn-sheet').classList.toggle('active', mode === 'sheet');
+  document.getElementById('mode-btn-fbe').classList.toggle('active', mode === 'fbe');
   document.getElementById('mode-excel-fields').style.display = mode === 'excel' ? '' : 'none';
   document.getElementById('mode-sheet-fields').style.display = mode === 'sheet' ? '' : 'none';
+  document.getElementById('mode-fbe-fields').style.display   = mode === 'fbe'   ? '' : 'none';
 }
 
 
@@ -387,6 +409,39 @@ function getStoresFromSheets(sheetNames) {
 }
 
 
+// ── HANDLER FILE MATERI FBE ─────────────────────────────────────────
+// Dikunci per key FBE_MATERIALS ('STICKER_KACA' mencakup file gabungan
+// Sticker Kaca / Frame Hanging LFD / Frame Standing LFD).
+let _fbeFiles = {}; // { [materialKey]: { name, rows: long-format[] } }
+
+function handleFbeMaterialFile(materialKey, file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const sheetName = wb.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+      const parsed = materialKey === 'STICKER_KACA'
+        ? parseFbeStickerKacaFile(rows)
+        : parseFbeMaterialFile(rows, materialKey);
+      if (!parsed.length) {
+        document.getElementById('fbe-status-' + materialKey).innerHTML =
+          '<span style="color:var(--red)">&#x26A0; Tidak ada data toko ditemukan di ' + esc(file.name) + '</span>';
+        return;
+      }
+      _fbeFiles[materialKey] = { name: file.name, rows: parsed };
+      const uniqueStores = new Set(parsed.map(r => r.plantCode)).size;
+      document.getElementById('fbe-status-' + materialKey).innerHTML =
+        `<span style="color:var(--teal)">&#x2713; ${esc(file.name)} — ${uniqueStores} toko</span>`;
+    } catch (err) {
+      toast('Gagal baca Excel (' + materialKey + '): ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+
 // ── SAVE CAMPAIGN ──────────────────────────────────────────────────
 async function saveCampaign() {
   const mode = document.getElementById('inp-mode').value;
@@ -400,7 +455,35 @@ async function saveCampaign() {
 
   let obj = {};
 
-  if (mode === 'excel') {
+  if (mode === 'fbe') {
+    const respRaw = document.getElementById('inp-response-sheet-fbe').value.trim();
+    const respId  = extractSheetId(respRaw);
+    const is      = document.getElementById('inp-import-sheet-fbe').value.trim() || 'Form Responses 1';
+
+    let localStores = [];
+    const materials = [];
+    Object.keys(FBE_MATERIALS).forEach(key => {
+      if (_fbeFiles[key] && _fbeFiles[key].rows.length) {
+        localStores = localStores.concat(_fbeFiles[key].rows);
+        const presentKeys = new Set(_fbeFiles[key].rows.map(r => r.jenisMateri));
+        presentKeys.forEach(k => { if (!materials.includes(k)) materials.push(k); });
+      }
+    });
+
+    if (!localStores.length && eid) {
+      // Edit tanpa upload ulang file apa pun — pertahankan localStores yang sudah ada.
+      const existing = campaigns.find(x => x.id === eid);
+      if (existing && existing.localStores && existing.localStores.length) {
+        localStores = existing.localStores;
+        materials.push(...(existing.materials || []));
+      }
+    }
+
+    if (!localStores.length) { toast('Upload minimal 1 file materi FBE', 'error'); return; }
+
+    obj = { mode:'excel', fbeMode:true, localStores, materials, responseSheetId:respId, importSheet:is, spreadsheetId:respId, masterSheet:'', headerRow: DEFAULT_HEADER_ROW };
+
+  } else if (mode === 'excel') {
     const respRaw = document.getElementById('inp-response-sheet').value.trim();
     const respId  = extractSheetId(respRaw);
     const is      = document.getElementById('inp-import-sheet-excel').value.trim() || DEFAULT_IMPORT_SHEET;
