@@ -465,16 +465,30 @@ async function handleFbeMaterialFile(slotKey, file) {
   if (!file) return;
   try {
     const rows = await _readXlsxFile(file);
-    const parsed = (slotKey === 'STICKER_KACA' || slotKey === 'FRAME_LFD')
+    const rawParsed = (slotKey === 'STICKER_KACA' || slotKey === 'FRAME_LFD')
       ? parseFbeStickerKacaFile(rows)
       : parseFbeMaterialFile(rows, slotKey);
+
+    // Jaga-jaga kalau file gabungan lama (Sticker Kaca + Frame Hanging LFD +
+    // Frame Standing LFD dalam 1 file) tidak sengaja diupload ke slot yang
+    // salah — parseFbeStickerKacaFile() akan tetap mengekstrak SEMUA kolom
+    // yang ada di file itu tanpa tahu slot mana yang memanggilnya, jadi di
+    // sini kita buang baris yang materinya bukan milik slot ini. Ini
+    // mencegah baris dobel kalau slot lain nanti diisi file yang benar juga.
+    const expectedMaterials = FBE_CONFIRM_GROUPS[slotKey].materials;
+    const parsed = rawParsed.filter(r => expectedMaterials.includes(r.jenisMateri));
+    const droppedCount = rawParsed.length - parsed.length;
+
     if (!parsed.length) {
       _setFbeSlotStatus(slotKey, '<span style="color:var(--red)">&#x26A0; Tidak ada data toko ditemukan di ' + esc(file.name) + '</span>');
       return;
     }
     _fbeFiles[slotKey] = { name: file.name, rows: parsed };
     const uniqueStores = new Set(parsed.map(r => r.plantCode)).size;
-    _setFbeSlotStatus(slotKey, `<span style="color:var(--teal)">&#x2713; ${esc(file.name)} — ${uniqueStores} toko</span>`);
+    const warning = droppedCount > 0
+      ? ` <span style="color:var(--gold)">(&#x26A0; ${droppedCount} baris materi lain di file ini diabaikan — sepertinya file gabungan lama, pastikan upload file per-materi yang benar)</span>`
+      : '';
+    _setFbeSlotStatus(slotKey, `<span style="color:var(--teal)">&#x2713; ${esc(file.name)} — ${uniqueStores} toko</span>${warning}`);
   } catch (err) {
     toast('Gagal baca Excel (' + slotKey + '): ' + err.message, 'error');
   }
