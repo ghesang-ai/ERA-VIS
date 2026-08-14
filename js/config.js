@@ -157,6 +157,22 @@ const FBE_MATERIALS = {
   FRAME_STANDING_LFD: { label: 'Frame Standing LFD',      formLabel: 'frame standing lfd' },
 };
 
+// ── FBE GRUP KONFIRMASI (realita lapangan) ─────────────────────────
+// Store Leader submit dokumentasi lewat 5 Google Form terpisah per
+// grup materi ini — BUKAN 1 form gabungan dengan 7 kolom Status+Foto
+// seperti asumsi awal. Form "Hanging Mobile" dan "Frame Hanging LFD &
+// Frame Standing LFD" tidak membedakan sub-desain, jadi 1 submission
+// dianggap berlaku untuk semua materi di dalam grupnya (lihat
+// parseFbeSimpleConfirmation() di js/fbeImport.js).
+const FBE_CONFIRM_GROUPS = {
+  EASEL_POSTER  : { label: 'Easel & Poster',                          materials: ['EASEL_POSTER'] },
+  HANGING_GATE  : { label: 'Hanging Gate',                             materials: ['HANGING_GATE'] },
+  HANGING_MOBILE: { label: 'Hanging Mobile (Desain 1 & 2)',            materials: ['HANGING_MOBILE_1', 'HANGING_MOBILE_2'] },
+  FRAME_LFD     : { label: 'Frame Hanging LFD & Frame Standing LFD',   materials: ['FRAME_HANGING_LFD', 'FRAME_STANDING_LFD'] },
+  STICKER_KACA  : { label: 'Sticker Kaca',                             materials: ['STICKER_KACA'] },
+};
+const DEFAULT_FBE_CONFIRM_SHEET_NAME = 'Form Responses 1';
+
 
 // ── HEALTH SCORE WEIGHTS ───────────────────────────────────────────
 const HEALTH_WEIGHTS = {

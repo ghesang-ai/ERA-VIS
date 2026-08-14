@@ -195,6 +195,46 @@ function parseFbeConfirmation(rows) {
   return out;
 }
 
+// ── SHEET KONFIRMASI SEDERHANA (realita lapangan: 5 form terpisah) ──
+// Tiap grup materi (lihat FBE_CONFIRM_GROUPS) punya Google Form/sheet
+// respons sendiri, bentuknya simpel: Timestamp | Kode Store | Nama
+// Store | Region | Submit Dokumentasi (1 kolom foto saja, tanpa kolom
+// Status terpisah — ada foto = dianggap Terpasang). Form "Hanging
+// Mobile" dan "Frame Hanging/Standing LFD" tidak membedakan sub-desain,
+// jadi 1 baris di sini menghasilkan 1 baris konfirmasi PER key di
+// `materialKeys` — kalau toko itu dialokasikan lebih dari satu sub-
+// materi dalam grup yang sama, submission tunggal ini menandai semuanya
+// terkonfirmasi sekaligus (computeFbeStoreStatus() tetap tidak berubah,
+// cukup diberi lebih banyak baris konfirmasi long-format).
+function parseFbeSimpleConfirmation(rows, materialKeys) {
+  if (!rows || rows.length < 2) return [];
+  const header = rows[0].map(_fbeNorm);
+  const iTime = header.findIndex(h => h.includes('timestamp'));
+  const iCode = header.findIndex(h => h.includes('kode store') || h.includes('kode toko'));
+  const iFoto = header.findIndex(h => h.includes('submit') && h.includes('dokument'));
+  if (iCode < 0 || iFoto < 0) return [];
+
+  const out = [];
+  rows.slice(1).forEach(r => {
+    const code = extractPlantCode(r[iCode]);
+    if (!code) return;
+    const linkFoto = String(r[iFoto] || '').trim();
+    if (!linkFoto) return; // tidak ada foto ter-upload = belum terkonfirmasi
+    const timestamp = iTime >= 0 ? String(r[iTime] || '').trim() : '';
+
+    materialKeys.forEach(key => {
+      out.push({
+        plantCode  : code,
+        jenisMateri: key,
+        status     : 'Terpasang',
+        tanggal    : timestamp,
+        linkFoto,
+      });
+    });
+  });
+  return out;
+}
+
 // ── JOIN: alokasi master ⋈ konfirmasi → status per toko ────────────
 // Kelompokkan baris master long-format berdasarkan (toko, kategori
 // materi) — BUKAN per baris sub-desain, lihat catatan desain di atas —
@@ -254,5 +294,5 @@ function computeFbeStoreStatus(masterRows, confirmationRows) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile, parseFbeConfirmation, computeFbeStoreStatus };
+  module.exports = { parseFbeMaterialFile, parseFbeStickerKacaFile, parseFbeConfirmation, parseFbeSimpleConfirmation, computeFbeStoreStatus };
 }
