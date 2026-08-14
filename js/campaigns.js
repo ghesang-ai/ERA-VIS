@@ -629,6 +629,34 @@ async function syncCampaignsFromCloud() {
 // - localStores → Netlify Blobs via /store-sync (terpisah, tidak ada size limit)
 const STORE_SYNC_PROXY = '/.netlify/functions/store-sync';
 
+// Proyeksikan localStores jadi bentuk minimal untuk push ke Netlify Blobs.
+// Field long-format FBE beda dari field campaign excel biasa (namaToko/kota,
+// bukan plantDesc/city) dan wajib menyertakan jenisMateri/subDesain/qty —
+// kalau dipetakan pakai bentuk excel biasa, info materinya hilang total.
+function _minStoresForSync(c) {
+  return c.fbeMode
+    ? c.localStores.map(s => ({
+        plantCode  : s.plantCode,
+        namaToko   : s.namaToko,
+        region     : s.region,
+        kota       : s.kota,
+        jenisMateri: s.jenisMateri,
+        subDesain  : s.subDesain || '',
+        qty        : s.qty || 1,
+        noResi     : s.noResi || '',
+        statusResi : s.statusResi || '',
+        pic        : s.pic || '',
+        kontak     : s.kontak || '',
+      }))
+    : c.localStores.map(s => ({
+        plantCode: s.plantCode,
+        plantDesc: s.plantDesc,
+        region   : s.region,
+        city     : s.city,
+        nomorResi: s.nomorResi || '',
+      }));
+}
+
 async function pushCampaignsToCloud() {
   // Kirim metadata saja ke Apps Script (strip localStores agar tidak melebihi limit)
   const payload = campaigns.map(c => {
@@ -649,13 +677,7 @@ async function pushCampaignsToCloud() {
   // Kirim localStores tiap Excel campaign ke Netlify Blobs
   const excelCampaigns = campaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
   await Promise.all(excelCampaigns.map(async c => {
-    const minStores = c.localStores.map(s => ({
-      plantCode: s.plantCode,
-      plantDesc: s.plantDesc,
-      region   : s.region,
-      city     : s.city,
-      nomorResi: s.nomorResi || '',
-    }));
+    const minStores = _minStoresForSync(c);
     try {
       await fetch(STORE_SYNC_PROXY, {
         method : 'POST',
@@ -685,7 +707,11 @@ async function pullLocalStoresFromCloud() {
         console.warn('[ERA-VIS] localStores pull gagal untuk', c.id, 'HTTP', res.status);
         return;
       }
-      const stores = sanitizeStores(await res.json());
+      // Campaign FBE sengaja punya banyak baris per plantCode (long-format,
+      // 1 baris = 1 toko + 1 materi) — sanitizeStores() akan menghapus baris
+      // itu sebagai "duplikat", jadi jangan dipakai untuk campaign FBE.
+      const raw    = await res.json();
+      const stores = c.fbeMode ? raw : sanitizeStores(raw);
       if (stores.length) {
         const idx = campaigns.findIndex(x => x.id === c.id);
         if (idx >= 0) campaigns[idx] = { ...campaigns[idx], localStores: stores };
@@ -725,13 +751,7 @@ async function pushMissingLocalStores() {
   if (!missing.length) return 0;
 
   await Promise.all(missing.map(async c => {
-    const minStores = c.localStores.map(s => ({
-      plantCode: s.plantCode,
-      plantDesc: s.plantDesc,
-      region   : s.region,
-      city     : s.city,
-      nomorResi: s.nomorResi || '',
-    }));
+    const minStores = _minStoresForSync(c);
     try {
       const res = await fetch(STORE_SYNC_PROXY, {
         method : 'POST',
@@ -758,7 +778,10 @@ async function cleanupStoredCampaigns() {
   const cleanedIds = [];
 
   campaigns = campaigns.map(c => {
-    if (c.mode !== 'excel' || !Array.isArray(c.localStores) || !c.localStores.length) return c;
+    // Campaign FBE sengaja punya banyak baris per plantCode (long-format) —
+    // sanitizeStores() akan menghapus baris "duplikat" itu dan merusak data
+    // multi-materi, jadi cleanup ini dilewati untuk campaign FBE.
+    if (c.fbeMode || c.mode !== 'excel' || !Array.isArray(c.localStores) || !c.localStores.length) return c;
     const clean = sanitizeStores(c.localStores);
     if (clean.length === c.localStores.length) return c;
     console.log(`[ERA-VIS] ${c.localStores.length - clean.length} baris non-toko dibuang dari "${c.name}"`);
