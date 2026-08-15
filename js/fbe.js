@@ -98,11 +98,15 @@ function populateFbeRegionFilter() {
 }
 
 // City filter cascade dari region yang sedang dipilih — sama seperti
-// updateStoreCityFilter() di halaman Data Toko (js/stores.js).
+// updateStoreCityFilter() di halaman Data Toko (js/stores.js). Kota
+// dinormalisasi ke uppercase (dedupe + filter) karena kota dari file
+// Excel campaign yang beda-beda bisa punya kapitalisasi tidak konsisten
+// (mis. "JAKARTA PUSAT" vs "Jakarta Pusat") — tanpa ini, kota yang sama
+// muncul dobel di dropdown dan tokonya kepisah di 2 filter berbeda.
 function updateFbeCityFilter() {
   const region = document.getElementById('fbe-region-filter').value;
   const source = region ? fbeStoreStatus.filter(s => s.region === region) : fbeStoreStatus;
-  const cities = [...new Set(source.map(s => s.kota))].filter(Boolean).sort();
+  const cities = [...new Set(source.map(s => (s.kota || '').trim().toUpperCase()))].filter(Boolean).sort();
 
   const sel  = document.getElementById('fbe-city-filter');
   const prev = sel.value;
@@ -169,7 +173,7 @@ function getFilteredFbeStores() {
 
   return fbeStoreStatus.filter(s => {
     if (region && s.region !== region) return false;
-    if (city && s.kota !== city) return false;
+    if (city && (s.kota || '').trim().toUpperCase() !== city) return false;
     if (status === 'complete' && !(s.totalCount > 0 && s.doneCount === s.totalCount)) return false;
     if (status === 'partial'  && !(s.doneCount > 0 && s.doneCount < s.totalCount)) return false;
     if (status === 'empty'    && s.doneCount !== 0) return false;
