@@ -71,33 +71,47 @@ function buildFbeReportHtml(store) {
     </div>`;
 }
 
-async function downloadFbeReport(plantCode) {
-  const store = fbeStoreStatus.find(s => s.plantCode === plantCode);
-  if (!store) { toast('Toko tidak ditemukan', 'error'); return; }
+// Render 1 halaman report toko ke dalam `container` (off-screen, sudah
+// di-append ke body oleh pemanggil) dan kembalikan canvas hasil snapshot.
+// Dipakai bareng oleh downloadFbeReport() (1 toko -> JPG) dan
+// exportFbeAllPdf() (banyak toko -> 1 PDF, 1 halaman per toko) supaya
+// logic render + tunggu foto load-nya cuma ada di 1 tempat.
+async function _renderFbeReportCanvas(store, container) {
+  container.innerHTML = buildFbeReportHtml(store);
 
-  toast('Menyiapkan report...', 'info');
+  // Beri waktu tag <img> untuk load sebelum snapshot canvas diambil.
+  const imgs = container.querySelectorAll('img');
+  await Promise.all([...imgs].map(img => new Promise(resolve => {
+    if (img.complete) return resolve();
+    img.onload = img.onerror = resolve;
+  })));
 
+  // scale:1 — .fbe-report-page sudah fixed 1920x1080 (lihat css/fbe.css),
+  // jadi outputnya presisi 1920x1080 tanpa perlu dikalikan lagi.
+  return html2canvas(container.querySelector('.fbe-report-page'), {
+    useCORS: true, backgroundColor: '#ffffff', scale: 1,
+  });
+}
+
+function _fbeOffscreenContainer() {
   const container = document.createElement('div');
   container.id = 'fbe-report-render';
   container.style.position = 'fixed';
   container.style.left = '-99999px';
   container.style.top  = '0';
-  container.innerHTML = buildFbeReportHtml(store);
   document.body.appendChild(container);
+  return container;
+}
+
+async function downloadFbeReport(plantCode) {
+  const store = fbeStoreStatus.find(s => s.plantCode === plantCode);
+  if (!store) { toast('Toko tidak ditemukan', 'error'); return; }
+
+  toast('Menyiapkan report...', 'info');
+  const container = _fbeOffscreenContainer();
 
   try {
-    // Beri waktu tag <img> untuk load sebelum snapshot canvas diambil.
-    const imgs = container.querySelectorAll('img');
-    await Promise.all([...imgs].map(img => new Promise(resolve => {
-      if (img.complete) return resolve();
-      img.onload = img.onerror = resolve;
-    })));
-
-    // scale:1 — .fbe-report-page sudah fixed 1920x1080 (lihat css/fbe.css),
-    // jadi outputnya presisi 1920x1080 tanpa perlu dikalikan lagi.
-    const canvas = await html2canvas(container.querySelector('.fbe-report-page'), {
-      useCORS: true, backgroundColor: '#ffffff', scale: 1,
-    });
+    const canvas = await _renderFbeReportCanvas(store, container);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
     const a = document.createElement('a');
@@ -109,6 +123,64 @@ async function downloadFbeReport(plantCode) {
     toast('Report berhasil di-download');
   } catch (err) {
     toast('Gagal generate report: ' + err.message, 'error');
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
+// Export SEMUA toko yang lolos filter tabel saat ini (sama seperti
+// exportFbeExcel() — pakai getFilteredFbeStores(), bukan seluruh campaign
+// tanpa filter) jadi 1 file PDF, 1 halaman 1920x1080 per toko. Proses
+// sekuensial (bukan paralel) karena tiap halaman butuh render + snapshot
+// html2canvas sendiri-sendiri — untuk campaign besar (ratusan/ribuan toko)
+// ini bisa makan waktu lama, makanya ada konfirmasi + estimasi durasi dulu.
+async function exportFbeAllPdf() {
+  if (!fbeCurrentCampaign) { toast('Pilih campaign FBE', 'error'); return; }
+  if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+    toast('Library PDF belum dimuat. Refresh halaman dan coba lagi.', 'error');
+    return;
+  }
+
+  const rows = getFilteredFbeStores();
+  if (!rows.length) { toast('Tidak ada toko untuk diexport (cek filter)', 'error'); return; }
+
+  if (rows.length > 30) {
+    const estMin = Math.ceil(rows.length * 1.5 / 60);
+    if (!confirm(`Export PDF untuk ${rows.length} toko — perkiraan ${estMin} menit (1 halaman per toko, diproses satu-satu). Lanjutkan?`)) return;
+  }
+
+  toast(`Menyiapkan PDF (${rows.length} toko)...`, 'info');
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: 'landscape', unit: 'px', format: [1920, 1080],
+    hotfixes: ['px_scaling'], compress: true,
+  });
+  const container = _fbeOffscreenContainer();
+
+  let ok = 0;
+  try {
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        const canvas = await _renderFbeReportCanvas(rows[i], container);
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        if (i > 0) doc.addPage([1920, 1080], 'landscape');
+        doc.addImage(imgData, 'JPEG', 0, 0, 1920, 1080);
+        ok++;
+      } catch (e) {
+        console.warn('[FBE] gagal render halaman PDF untuk', rows[i].plantCode, e.message);
+      }
+      if ((i + 1) % 10 === 0 || i === rows.length - 1) {
+        toast(`Memproses ${i + 1}/${rows.length} toko...`, 'info');
+      }
+    }
+
+    const name = fbeCurrentCampaign.name;
+    doc.save(`FBE_All_${name.replace(/[^a-zA-Z0-9]/g,'_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    addLog('system', `FBE Export All PDF: ${name} (${ok}/${rows.length} toko)`);
+    toast(`PDF berhasil! ${ok}/${rows.length} toko terekspor.`);
+  } catch (err) {
+    toast('Gagal generate PDF: ' + err.message, 'error');
   } finally {
     document.body.removeChild(container);
   }
