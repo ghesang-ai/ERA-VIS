@@ -162,7 +162,8 @@
           <select id="fbe-campaign-select" onchange="loadFbePage(this.value)">
             <option value="">-- Pilih Campaign FBE --</option>
           </select>
-          <select id="fbe-region-filter" onchange="renderFbeTable()"><option value="">Semua Region</option></select>
+          <select id="fbe-region-filter" onchange="updateFbeCityFilter();renderFbeTable()"><option value="">Semua Region</option></select>
+          <select id="fbe-city-filter" onchange="renderFbeTable()"><option value="">Semua City</option></select>
           <select id="fbe-status-filter" onchange="renderFbeTable()">
             <option value="">Semua Status</option>
             <option value="complete">Lengkap 100%</option>
