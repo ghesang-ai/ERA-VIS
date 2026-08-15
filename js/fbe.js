@@ -266,10 +266,24 @@ function buildFbeMsg(storeName, plantCode, materialLabel, campaignName, formLink
     `Terima kasih! 🙏`;
 }
 
-// Kumpulan (toko, materi) yang lagi ditampilkan di modal preview — dibangun
-// sekali saat modal dibuka (snapshot), lalu dipakai lagi saat user klik
-// "Kirim Semua" supaya tidak perlu scan ulang state yang mungkin berubah
-// selagi modal terbuka.
+// Scoring Visibility FBE cuma punya 1 form gabungan untuk semua materi
+// (beda dari FBE biasa yang 1 form per grup materi) — kirim 1 pesan berisi
+// DAFTAR semua materi yang belum terpasang per toko, bukan 1 pesan
+// terpisah per materi dengan link yang sama persis diulang-ulang.
+function buildFbeScoringMsg(storeName, plantCode, materialLabels, campaignName, formLink) {
+  const list = materialLabels.map(l => `- ${l}`).join('\n');
+  return `Halo Store Leader *${storeName}* (${plantCode}),\n\n` +
+    `Materi berikut untuk campaign *${campaignName}* belum terkonfirmasi terpasang:\n${list}\n\n` +
+    `Mohon segera pasang dan submit dokumentasi via form:\n${formLink || '(link form belum diset)'}\n\n` +
+    `Terima kasih! 🙏`;
+}
+
+// Kumpulan entri yang lagi ditampilkan di modal preview — dibangun sekali
+// saat modal dibuka (snapshot), lalu dipakai lagi saat user klik "Kirim
+// Semua" supaya tidak perlu scan ulang state yang mungkin berubah selagi
+// modal terbuka. Tiap entri = { store, sl, material } untuk FBE biasa (1
+// pesan per materi), atau { store, sl, materials:[...] } untuk Scoring (1
+// pesan gabungan per toko) — lihat _fbeBuildReminderEntries().
 let _fbePendingReminders = [];
 
 function _fbeScanPendingReminders() {
@@ -282,23 +296,46 @@ function _fbeScanPendingReminders() {
   return pending;
 }
 
+// Untuk campaign Scoring, gabung semua materi belum terpasang milik toko
+// yang sama jadi 1 entri (1 pesan WA per toko) — karena semuanya memang
+// mengarah ke form yang sama persis. FBE biasa dibiarkan apa adanya (1
+// entri per materi), karena tiap grup materi punya form sendiri-sendiri.
+function _fbeBuildReminderEntries(flatPending) {
+  if (!fbeCurrentCampaign || !fbeCurrentCampaign.scoringMode) return flatPending;
+  const byStore = {};
+  flatPending.forEach(p => {
+    const key = p.store.plantCode;
+    if (!byStore[key]) byStore[key] = { store: p.store, sl: p.sl, materials: [] };
+    byStore[key].materials.push(p.material);
+  });
+  return Object.values(byStore);
+}
+
+function _fbeEntryMsg(p) {
+  if (p.materials) {
+    return buildFbeScoringMsg(p.store.namaToko, p.store.plantCode, p.materials.map(m => m.label), fbeCurrentCampaign.name, fbeCurrentCampaign.formLink || '');
+  }
+  const formLink = _fbeFormLinkForMaterial(fbeCurrentCampaign, p.material.jenisMateri);
+  return buildFbeMsg(p.store.namaToko, p.store.plantCode, p.material.label, fbeCurrentCampaign.name, formLink);
+}
+
 // ── PREVIEW sebelum kirim massal ──────────────────────────────────
 // Tombol "Scan & Kirim Reminder" / "Blast Terpilih" tidak langsung kirim —
-// buka modal berisi isi pesan lengkap tiap (toko, materi) dulu, baru kirim
-// semua kalau user menekan "Kirim Semua via WhatsApp" di modal itu. Dipakai
-// bareng oleh kedua tombol, bedanya cuma daftar `pending` yang di-scan.
-function _openFbeRemindPreviewModal(pending) {
-  _fbePendingReminders = pending;
+// buka modal berisi isi pesan lengkap tiap entri dulu, baru kirim semua
+// kalau user menekan "Kirim Semua via WhatsApp" di modal itu. Dipakai
+// bareng oleh kedua tombol, bedanya cuma daftar `entries` yang di-scan.
+function _openFbeRemindPreviewModal(entries) {
+  _fbePendingReminders = entries;
 
   document.getElementById('fbe-remind-summary').textContent =
-    `${pending.length} reminder (per materi) akan dikirim ke ${new Set(pending.map(p => p.sl.phone)).size} nomor WhatsApp Store Leader:`;
+    `${entries.length} pesan WhatsApp akan dikirim ke ${new Set(entries.map(p => p.sl.phone)).size} nomor Store Leader:`;
 
-  document.getElementById('fbe-remind-list').innerHTML = pending.map(p => {
-    const formLink = _fbeFormLinkForMaterial(fbeCurrentCampaign, p.material.jenisMateri);
-    const msg = buildFbeMsg(p.store.namaToko, p.store.plantCode, p.material.label, fbeCurrentCampaign.name, formLink);
+  document.getElementById('fbe-remind-list').innerHTML = entries.map(p => {
+    const msg = _fbeEntryMsg(p);
+    const subtitle = p.materials ? `${p.materials.length} materi belum terpasang` : p.material.label;
     return `
       <div style="border:1px solid var(--border2);border-radius:var(--r-sm);padding:12px">
-        <div style="font-weight:700;font-size:12.5px;margin-bottom:2px">${esc(p.store.namaToko)} (${esc(p.store.plantCode)}) — ${esc(p.material.label)}</div>
+        <div style="font-weight:700;font-size:12.5px;margin-bottom:2px">${esc(p.store.namaToko)} (${esc(p.store.plantCode)}) — ${esc(subtitle)}</div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:8px">WA Store Leader: ${esc(p.sl.phone)}</div>
         <div class="msg-preview" style="max-height:none"><div class="wa-bubble">${esc(msg).replace(/\n/g, '<br>')}</div></div>
       </div>`;
@@ -315,7 +352,7 @@ function openFbeRemindPreview() {
   const pending = _fbeScanPendingReminders();
   if (!pending.length) { toast('Tidak ada materi belum terpasang dengan SL terdaftar', 'warn'); return; }
 
-  _openFbeRemindPreviewModal(pending);
+  _openFbeRemindPreviewModal(_fbeBuildReminderEntries(pending));
 }
 
 // Cuma toko yang dicentang di tabel (checkbox .fbe-check) — toko yang
@@ -330,28 +367,35 @@ function openFbeBlastPreview() {
   const pending = _fbeScanPendingReminders().filter(p => checkedCodes.has(p.store.plantCode));
   if (!pending.length) { toast('Toko yang dicentang tidak punya materi belum terpasang / SL tidak terdaftar', 'warn'); return; }
 
-  _openFbeRemindPreviewModal(pending);
+  _openFbeRemindPreviewModal(_fbeBuildReminderEntries(pending));
 }
 
 async function confirmSendFbeReminders() {
-  const pending = _fbePendingReminders;
-  if (!pending.length) { closeModal('modal-fbe-remind'); return; }
+  const entries = _fbePendingReminders;
+  if (!entries.length) { closeModal('modal-fbe-remind'); return; }
 
   const btn = document.getElementById('fbe-remind-send-btn');
   if (btn) btn.disabled = true;
 
   let sent = 0;
   const cid = fbeCurrentCampaign.id;
-  for (const p of pending) {
-    const formLink = _fbeFormLinkForMaterial(fbeCurrentCampaign, p.material.jenisMateri);
-    const msg = buildFbeMsg(p.store.namaToko, p.store.plantCode, p.material.label, fbeCurrentCampaign.name, formLink);
+  for (const p of entries) {
+    const msg = _fbeEntryMsg(p);
     const ok  = await sendViaFonnte(p.sl.phone, msg, settings);
     if (ok) {
       sent++;
-      const key = p.store.plantCode + '|' + p.material.jenisMateri;
+      // 1 pesan gabungan (Scoring) tetap dicatat per-materi di reminderHistory
+      // supaya "sudah pernah diingatkan" tercatat akurat untuk tiap materi,
+      // walau fisiknya cuma 1 kali kirim WA.
+      const materialsToLog = p.materials || [p.material];
       if (!reminderHistory[cid]) reminderHistory[cid] = {};
-      reminderHistory[cid][key] = { level: 1, sentAt: new Date().toISOString(), phone: p.sl.phone };
-      addLog('reminder', `[FBE] ${p.material.label} to ${p.store.namaToko} (${p.sl.phone})`);
+      materialsToLog.forEach(m => {
+        reminderHistory[cid][p.store.plantCode + '|' + m.jenisMateri] = {
+          level: 1, sentAt: new Date().toISOString(), phone: p.sl.phone,
+        };
+      });
+      const label = p.materials ? `${materialsToLog.length} materi` : p.material.label;
+      addLog('reminder', `[FBE] ${label} to ${p.store.namaToko} (${p.sl.phone})`);
     }
     await new Promise(r => setTimeout(r, REMINDER_DELAY_MS));
   }
@@ -360,5 +404,5 @@ async function confirmSendFbeReminders() {
   if (btn) btn.disabled = false;
   _fbePendingReminders = [];
   closeModal('modal-fbe-remind');
-  toast(`${sent}/${pending.length} reminder terkirim`);
+  toast(`${sent}/${entries.length} pesan terkirim`);
 }
