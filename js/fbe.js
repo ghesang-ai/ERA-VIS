@@ -94,6 +94,21 @@ function populateFbeRegionFilter() {
   sel.innerHTML = '<option value="">Semua Region</option>' +
     regions.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
   if (prev && regions.includes(prev)) sel.value = prev;
+  updateFbeCityFilter();
+}
+
+// City filter cascade dari region yang sedang dipilih — sama seperti
+// updateStoreCityFilter() di halaman Data Toko (js/stores.js).
+function updateFbeCityFilter() {
+  const region = document.getElementById('fbe-region-filter').value;
+  const source = region ? fbeStoreStatus.filter(s => s.region === region) : fbeStoreStatus;
+  const cities = [...new Set(source.map(s => s.kota))].filter(Boolean).sort();
+
+  const sel  = document.getElementById('fbe-city-filter');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Semua City</option>' +
+    cities.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value = (prev && cities.includes(prev)) ? prev : '';
 }
 
 // ── SUMMARY (KPI + progress ring) ──────────────────────────────────
@@ -148,11 +163,13 @@ function renderFbeRegionLeaderboard() {
 // ── FILTER + SEARCH ─────────────────────────────────────────────────
 function getFilteredFbeStores() {
   const region = document.getElementById('fbe-region-filter').value;
+  const city   = document.getElementById('fbe-city-filter').value;
   const status = document.getElementById('fbe-status-filter').value;
   const q       = document.getElementById('fbe-search').value.trim().toLowerCase();
 
   return fbeStoreStatus.filter(s => {
     if (region && s.region !== region) return false;
+    if (city && s.kota !== city) return false;
     if (status === 'complete' && !(s.totalCount > 0 && s.doneCount === s.totalCount)) return false;
     if (status === 'partial'  && !(s.doneCount > 0 && s.doneCount < s.totalCount)) return false;
     if (status === 'empty'    && s.doneCount !== 0) return false;
