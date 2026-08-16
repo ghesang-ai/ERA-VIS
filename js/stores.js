@@ -151,8 +151,15 @@ async function checkResiStatus() {
   let checked = 0;
   for (const resi of resiNums) {
     if (resiStatusCache[resi] && resiStatusCache[resi] !== 'loading') { checked++; continue; }
+    // Timeout per request — tanpa ini, 1 request yang macet (mis. API
+    // 21Express mulai throttle diam-diam setelah ratusan request beruntun
+    // tanpa jeda) bikin await fetch() menggantung SELAMANYA dan seluruh
+    // sisa batch (bisa ratusan toko lagi) tidak pernah lanjut — macet total
+    // tanpa error, cuma tombol "Mengecek..." yang tidak pernah selesai.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
     try {
-      const resp = await fetch(`/.netlify/functions/track-resi?resi=${encodeURIComponent(resi)}`);
+      const resp = await fetch(`/.netlify/functions/track-resi?resi=${encodeURIComponent(resi)}`, { signal: controller.signal });
       const data = await resp.json();
       const results = data?.express21?.results?.data;
       if (results && results.length > 0) {
@@ -163,9 +170,12 @@ async function checkResiStatus() {
       }
     } catch (e) {
       resiStatusCache[resi] = 'error';
+    } finally {
+      clearTimeout(timeoutId);
     }
     checked++;
     if (checked % 5 === 0) renderStoreTable();
+    if (checked % 50 === 0) toast(`Mengecek resi... ${checked}/${resiNums.length}`, 'info');
   }
 
   _saveResiCache(cid);
