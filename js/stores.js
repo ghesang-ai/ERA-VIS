@@ -149,12 +149,18 @@ async function checkResiStatus() {
   const resiNums = [...new Set(stores.map(s => s.nomorResi.trim()))];
   toast(`Mengecek ${resiNums.length} resi...`, 'info');
 
-  resiNums.forEach(r => { if (!resiStatusCache[r]) resiStatusCache[r] = 'loading'; });
+  resiNums.forEach(r => { if (!resiStatusCache[r] || resiStatusCache[r] === 'error') resiStatusCache[r] = 'loading'; });
   renderStoreTable();
 
   let checked = 0;
   for (const resi of resiNums) {
-    if (resiStatusCache[resi] && resiStatusCache[resi] !== 'loading') { checked++; continue; }
+    // 'error' SENGAJA tidak dianggap "sudah dicek" — kalau tidak, resi yang
+    // gagal di percobaan pertama (mis. timeout sesaat) akan macet selamanya
+    // di status "Gagal" untuk sisa 1 jam cache TTL, walau user klik ulang
+    // tombolnya berkali-kali. Cuma status yang BENERAN berhasil (RECEIVED,
+    // DELIVERY, dst) yang di-skip supaya tidak fetch ulang tanpa perlu.
+    const cached = resiStatusCache[resi];
+    if (cached && cached !== 'loading' && cached !== 'error') { checked++; continue; }
     // Timeout per request — tanpa ini, 1 request yang macet (mis. API
     // 21Express mulai throttle diam-diam setelah ratusan request beruntun
     // tanpa jeda) bikin await fetch() menggantung SELAMANYA dan seluruh
