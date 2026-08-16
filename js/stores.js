@@ -134,9 +134,13 @@ function _resiStatusBadge(resi) {
 async function checkResiStatus() {
   if (resiCheckInProgress) return;
   const cid = document.getElementById('store-campaign-select').value;
-  const allStores = getDisplayStores();
-  const stores = allStores.filter(s => s.nomorResi && s.nomorResi.trim());
-  if (!stores.length) { toast('Tidak ada No Resi di campaign ini', 'warn'); return; }
+  // Cuma cek resi toko yang lolos filter Region/Status/City/Search yang
+  // lagi aktif (sama seperti renderStoreTable()) — bukan selalu seluruh
+  // campaign yang bisa ribuan resi dan lama. Persempit dulu lewat filter
+  // kalau mau proses lebih cepat.
+  const filteredStores = getFilteredStoreRows();
+  const stores = filteredStores.filter(s => s.nomorResi && s.nomorResi.trim());
+  if (!stores.length) { toast('Tidak ada No Resi di toko yang lolos filter saat ini', 'warn'); return; }
 
   resiCheckInProgress = true;
   const btn = document.getElementById('btn-cek-resi');
@@ -187,7 +191,11 @@ async function checkResiStatus() {
 
 
 // ── RENDER STORE TABLE ─────────────────────────────────────────────
-function renderStoreTable() {
+// Filter Region/Status/City/Search yang lagi aktif di toolbar — dipakai
+// bareng oleh renderStoreTable() (tampilan tabel) dan checkResiStatus()
+// (supaya bisa cek resi cuma untuk toko yang lagi ditampilkan, bukan
+// selalu seluruh campaign yang bisa ribuan resi dan lama).
+function getFilteredStoreRows() {
   const region = document.getElementById('store-region-filter').value;
   const status = document.getElementById('store-status-filter').value;
   const city   = document.getElementById('store-city-filter').value;
@@ -202,6 +210,11 @@ function renderStoreTable() {
     s.plantDesc.toLowerCase().includes(search) ||
     s.city.toLowerCase().includes(search)
   );
+  return stores;
+}
+
+function renderStoreTable() {
+  const stores = getFilteredStoreRows();
 
   document.getElementById('store-count').textContent = stores.length + ' toko';
   const tbody = document.getElementById('store-tbody');
@@ -297,21 +310,7 @@ function _updateCopyBtn() {
 
 // ── COPY TO TEXT ───────────────────────────────────────────────────
 function copyStoresToText() {
-  const region = document.getElementById('store-region-filter').value;
-  const status = document.getElementById('store-status-filter').value;
-  const city   = document.getElementById('store-city-filter').value;
-  const search = document.getElementById('store-search').value.toLowerCase();
-
-  let stores = getDisplayStores();
-  if (region) stores = stores.filter(s => s.region === region);
-  if (status) stores = stores.filter(s => s.status === status);
-  if (city)   stores = stores.filter(s => s.city === city);
-  if (search) stores = stores.filter(s =>
-    s.plantCode.toLowerCase().includes(search) ||
-    s.plantDesc.toLowerCase().includes(search) ||
-    s.city.toLowerCase().includes(search)
-  );
-
+  const stores = getFilteredStoreRows();
   if (!stores.length) { toast('Tidak ada data NOT DONE', 'error'); return; }
 
   // Group by city
