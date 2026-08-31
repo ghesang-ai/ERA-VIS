@@ -89,6 +89,7 @@ function _campRenderTabs() {
   const now = new Date().getMonth() + 1;
   const branded = _brandedCampaigns();
   const monthSet = new Set(branded.map(c => _campDeadlineMonth(c)).filter(Boolean));
+  const noDeadline = branded.filter(c => !_campDeadlineMonth(c)).length;
   let html = `<button class="camp-month-tab${_campActiveMonth==='all'?' active':' has-camp'}" onclick="_campSetMonth('all')">Semua</button>`;
   for (let m = 1; m <= 12; m++) {
     const cnt  = branded.filter(c => _campDeadlineMonth(c) === m).length;
@@ -98,6 +99,10 @@ function _campRenderTabs() {
     html += `<button class="camp-month-tab${cls}" onclick="_campSetMonth(${m})"${has?'':' style="opacity:.3"'}>
       ${MONTH_SHORT_ID[m-1]}${has?`<sup>${cnt}</sup>`:''}${now_}
     </button>`;
+  }
+  if (noDeadline) {
+    const cls = _campActiveMonth === 'none' ? ' active' : ' has-camp';
+    html += `<button class="camp-month-tab${cls}" onclick="_campSetMonth('none')">Tanpa Deadline<sup>${noDeadline}</sup></button>`;
   }
   el.innerHTML = html;
 }
@@ -165,7 +170,9 @@ function renderCampaignList() {
   // filter by month
   let filtered = _campActiveMonth === 'all'
     ? branded
-    : branded.filter(c => _campDeadlineMonth(c) === _campActiveMonth);
+    : _campActiveMonth === 'none'
+      ? branded.filter(c => !_campDeadlineMonth(c))
+      : branded.filter(c => _campDeadlineMonth(c) === _campActiveMonth);
 
   filtered = _campSorted(filtered);
 
@@ -175,13 +182,14 @@ function renderCampaignList() {
   }
 
   if (_campActiveMonth !== 'all') {
-    const mName = MONTH_NAMES_ID[_campActiveMonth - 1];
-    const phase = _campActiveMonth < now ? 'past' : _campActiveMonth === now ? 'current' : 'future';
-    const pLbl  = { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
+    const isNone = _campActiveMonth === 'none';
+    const mName = isNone ? 'Tanpa Deadline' : `${MONTH_NAMES_ID[_campActiveMonth - 1]} ${nowYear}`;
+    const phase = isNone ? 'future' : (_campActiveMonth < now ? 'past' : _campActiveMonth === now ? 'current' : 'future');
+    const pLbl  = isNone ? 'Belum dijadwalkan' : { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
     wrap.innerHTML = `
       <div class="camp-group">
         <div class="camp-group-hd">
-          <span class="camp-group-title">📅 ${mName} ${nowYear}</span>
+          <span class="camp-group-title">📅 ${mName}</span>
           <span class="camp-group-pill ${phase}">${pLbl}</span>
           <span class="camp-group-line"></span>
           <span class="camp-group-cnt">${filtered.length} campaign</span>
@@ -191,18 +199,19 @@ function renderCampaignList() {
     return;
   }
 
-  // group by month
+  // group by month — campaign tanpa deadline masuk grup khusus di akhir
   const map = {};
-  filtered.forEach(c => { const m = _campDeadlineMonth(c); if (m) { if (!map[m]) map[m]=[]; map[m].push(c); } });
-  const months = Object.keys(map).map(Number).sort((a,b)=>a-b);
+  filtered.forEach(c => { const m = _campDeadlineMonth(c) || 0; (map[m] || (map[m] = [])).push(c); });
+  const months = Object.keys(map).map(Number).filter(m => m).sort((a,b)=>a-b);
+  if (map[0]) months.push(0);
 
   wrap.innerHTML = months.map(m => {
-    const mName = MONTH_NAMES_ID[m-1];
-    const phase = m < now ? 'past' : m === now ? 'current' : 'future';
-    const pLbl  = { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
+    const mName = m === 0 ? 'Tanpa Deadline' : `${MONTH_NAMES_ID[m-1]} ${nowYear}`;
+    const phase = m === 0 ? 'future' : (m < now ? 'past' : m === now ? 'current' : 'future');
+    const pLbl  = m === 0 ? 'Belum dijadwalkan' : { past:'Selesai', current:'Bulan Ini', future:'Mendatang' }[phase];
     return `<div class="camp-group">
       <div class="camp-group-hd">
-        <span class="camp-group-title">📅 ${mName} ${nowYear}</span>
+        <span class="camp-group-title">📅 ${mName}</span>
         <span class="camp-group-pill ${phase}">${pLbl}</span>
         <span class="camp-group-line"></span>
         <span class="camp-group-cnt">${map[m].length} campaign</span>
