@@ -1007,8 +1007,11 @@ initSendModalListeners();
 })();
 
 // ── SEED DEFAULT CAMPAIGN ─────────────────────────────────────────
+// Ditandai _seed:true supaya cloud-sync TIDAK pernah menganggapnya data user
+// dan tidak pernah meng-upload-nya (menimpa cloud yang berisi) saat localStorage
+// baru dievikasi browser. Begitu sync berhasil, entri ini digantikan versi cloud.
 if (!campaigns.length) {
-  campaigns = DEFAULT_CAMPAIGNS.map(c => ({ ...c, createdAt: new Date().toISOString() }));
+  campaigns = DEFAULT_CAMPAIGNS.map(c => ({ ...c, _seed: true, createdAt: new Date().toISOString() }));
   save(SK.campaigns, campaigns);
 }
 
