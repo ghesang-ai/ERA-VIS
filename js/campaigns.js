@@ -742,16 +742,112 @@ async function saveCampaign() {
 // Proxy URL — server-side request ke Apps Script, bebas CORS
 const SYNC_PROXY = '/.netlify/functions/campaign-sync';
 
-// Ambil campaigns dari cloud (via Netlify Blobs proxy)
+// Fallback langsung ke Apps Script kalau Netlify Function (proxy) TIDAK ada
+// / balas 404 — persis kejadian yang bikin semua campaign "hilang": functions
+// belum/gagal ke-deploy, syncCampaignsFromCloud() dapat 404, app cuma
+// menampilkan seed default. GET /exec mendukung CORS lewat redirect ke
+// googleusercontent.com; POST pakai text/plain supaya jadi "simple request"
+// (Apps Script tidak menangani preflight OPTIONS) — doPost tetap membaca
+// e.postData.contents apa pun Content-Type-nya.
+const CAMPAIGN_APPS_SCRIPT =
+  (typeof CAMPAIGN_SYNC_URL === 'string' && CAMPAIGN_SYNC_URL) ? CAMPAIGN_SYNC_URL : '';
+
+async function _cloudGetCampaigns() {
+  try {
+    const r = await fetch(SYNC_PROXY, { cache: 'no-store' });
+    if (r.ok) {
+      const d = await r.json();
+      if (Array.isArray(d)) return { ok: true, data: d, via: 'proxy' };
+    }
+  } catch (e) { /* lanjut ke fallback langsung */ }
+  if (CAMPAIGN_APPS_SCRIPT) {
+    try {
+      const r = await fetch(CAMPAIGN_APPS_SCRIPT, { cache: 'no-store' });
+      if (r.ok) {
+        const d = await r.json();
+        if (Array.isArray(d)) return { ok: true, data: d, via: 'direct' };
+      }
+    } catch (e) { /* fall through */ }
+  }
+  return { ok: false, data: null, via: null };
+}
+
+async function _cloudPutCampaigns(payload) {
+  const body = JSON.stringify(payload);
+  // 1. Lewat Netlify proxy (paling andal — handle redirect POST Apps Script)
+  try {
+    const r = await fetch(SYNC_PROXY, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+    });
+    if (r.ok) return true;
+  } catch (e) { /* lanjut */ }
+  if (!CAMPAIGN_APPS_SCRIPT) return false;
+  // 2. Langsung ke Apps Script, follow redirect (kadang balas 200 langsung)
+  try {
+    const r = await fetch(CAMPAIGN_APPS_SCRIPT, {
+      method  : 'POST',
+      headers : { 'Content-Type': 'text/plain;charset=utf-8' },
+      body, redirect: 'follow',
+    });
+    if (r.ok) return true;
+  } catch (e) { /* lanjut */ }
+  // 3. Last resort: no-cors fire-and-forget. Response opaque (tak bisa dibaca),
+  //    tapi body tetap terkirim. Aman karena backend Apps Script punya
+  //    shrink-guard + auto-backup A1 sebelum menimpa.
+  try {
+    await fetch(CAMPAIGN_APPS_SCRIPT, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body,
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
+// Snapshot campaigns SEBELUM operasi yang menimpa localStorage — kalau sync
+// bikin data menyusut (cloud lagi bermasalah / balas tipis), user tetap bisa
+// pulihkan lewat restoreCampaignsFromBackup() di console.
+function _backupCampaignsLocal(reason) {
+  try {
+    // Metadata saja (buang localStores yang bisa ribuan baris) agar backup
+    // tetap kecil & tidak ikut kena quota localStorage.
+    const meta = campaigns.map(c => { const { localStores, ...m } = c; return m; });
+    localStorage.setItem('eravis_campaigns_backup', JSON.stringify({
+      at: new Date().toISOString(), reason: reason || '',
+      count: meta.length, campaigns: meta,
+    }));
+  } catch (e) { /* localStorage penuh — abaikan */ }
+}
+
+function restoreCampaignsFromBackup() {
+  try {
+    const snap = JSON.parse(localStorage.getItem('eravis_campaigns_backup') || 'null');
+    if (!snap || !Array.isArray(snap.campaigns) || !snap.campaigns.length) {
+      console.warn('[ERA-VIS] Tidak ada backup campaign lokal'); return false;
+    }
+    campaigns = snap.campaigns;
+    save(SK.campaigns, campaigns);
+    populateAllSelects(); populateFbeSelect(); renderCampaignList();
+    console.log(`[ERA-VIS] ${campaigns.length} campaign dipulihkan dari backup (${snap.at})`);
+    return true;
+  } catch (e) { console.warn('[ERA-VIS] restore backup gagal:', e.message); return false; }
+}
+
+// Ambil campaigns dari cloud (Netlify proxy → fallback Apps Script langsung)
 async function syncCampaignsFromCloud() {
   try {
-    const resp = await fetch(SYNC_PROXY, { cache: 'no-store' });
-    if (!resp.ok) return false;
-    const data = await resp.json();
+    const res = await _cloudGetCampaigns();
+    if (!res.ok) {
+      console.warn('[ERA-VIS] Cloud tak terjangkau (proxy & Apps Script langsung gagal) — pakai localStorage');
+      return false;
+    }
+    const data = res.data;
 
-    // Cloud kosong → push local campaigns agar cloud terupdate
-    if (!Array.isArray(data) || !data.length) {
-      if (campaigns.length > 0) pushCampaignsToCloud();
+    // Cloud balas array kosong. JANGAN push lokal ke cloud di sini: kalau lokal
+    // cuma seed default (localStorage baru dievikasi Safari/iOS ITP), push itu
+    // menimpa cloud yang sebenarnya berisi. Biarkan user memutuskan lewat
+    // tombol "Simpan ke Cloud" (forcePushToCloud) secara manual.
+    if (!data.length) {
+      console.warn('[ERA-VIS] Cloud balas kosong — data lokal tidak diubah, tidak ada push otomatis');
       return 'empty';
     }
 
@@ -774,19 +870,36 @@ async function syncCampaignsFromCloud() {
       }
       return c;
     });
-    // Kampanye lokal yang tidak ada di cloud — tapi abaikan Excel campaign tanpa localStores
-    // (artinya campaign lama yang sudah dihapus dan cache-nya belum bersih). Campaign FBE
-    // (fbeMode) SENGAJA dikecualikan dari heuristik ini: campaign FBE yang baru saja dibuat
-    // bisa saja belum sempat ter-push ke cloud (fire-and-forget, atau localStorage penuh)
-    // padahal datanya valid di memori — kalau ikut heuristik "Excel tanpa localStores =
-    // ghost" di atas, campaign FBE bisa hilang permanen di sync berikutnya walau tidak
-    // pernah dihapus siapa pun. Lihat juga _minStoresForSync/cleanupStoredCampaigns yang
-    // sudah lebih dulu memberi pengecualian serupa untuk fbeMode.
+    // Campaign lokal yang belum ada di cloud → SELALU dipertahankan. Metadata
+    // campaign itu kecil; heuristik lama ("Excel tanpa localStores = ghost, buang")
+    // terbukti menghapus campaign asli permanen begitu cloud sempat menipis
+    // (mis. proxy 404 lalu device lain push seed). Ghost hanya dibuang lewat
+    // daftar SK.deleted yang eksplisit. Seed default (_seed) tidak ikut.
     const localOnly = campaigns.filter(c =>
-      !cloudIds.has(c.id) && !(!c.fbeMode && c.mode === 'excel' && (!c.localStores || !c.localStores.length))
+      !cloudIds.has(c.id) && !deletedIds.has(c.id) && !c._seed
     );
-    campaigns = [...merged, ...localOnly];
-    save(SK.campaigns, campaigns);
+    const next = [...merged, ...localOnly];
+
+    // Guard penyusutan: kalau hasil sync jauh lebih kecil dari data lokal nyata
+    // sekarang, kemungkinan besar cloud lagi bermasalah. Simpan backup, pakai
+    // union lokal∪cloud, dan JANGAN push balik supaya cloud tidak ketimpa versi tipis.
+    const realLocal = campaigns.filter(c => !c._seed);
+    const shrinking = realLocal.length >= 4 && next.length < realLocal.length * 0.5;
+    _backupCampaignsLocal(shrinking ? 'sync-shrink-guard' : 'pre-sync');
+
+    if (shrinking) {
+      console.warn(`[ERA-VIS] Hasil sync (${next.length}) << lokal (${realLocal.length}) — tahan: pakai union, tidak push`);
+      // Union: cloud/merged menang untuk id yang sama, sisanya dari lokal nyata.
+      campaigns = Object.values(Object.fromEntries(
+        [...realLocal, ...next].map(c => [c.id, c])
+      ));
+      try { save(SK.campaigns, campaigns); } catch (e) { /* localStorage penuh */ }
+      populateAllSelects(); populateFbeSelect(); renderCampaignList();
+      return true;
+    }
+
+    campaigns = next;
+    try { save(SK.campaigns, campaigns); } catch (e) { console.warn('[ERA-VIS] localStorage penuh saat simpan hasil sync:', e.message); }
     // Hanya push ke cloud jika ada campaign lokal yang belum ada di cloud —
     // hindari overwrite cloud dengan data stale saat sync
     if (localOnly.length > 0) pushCampaignsToCloud();
@@ -838,24 +951,24 @@ function _minStoresForSync(c) {
 }
 
 async function pushCampaignsToCloud() {
+  // Jangan pernah push kalau isinya cuma seed default — ini sering terjadi saat
+  // localStorage baru dievikasi; push-nya akan MENIMPA cloud yang sebenarnya berisi.
+  const realCampaigns = campaigns.filter(c => !c._seed);
+  if (!realCampaigns.length) {
+    console.warn('[ERA-VIS] Skip push: tidak ada campaign nyata (hanya seed default)');
+    return false;
+  }
+
   // Kirim metadata saja ke Apps Script (strip localStores agar tidak melebihi limit)
-  const payload = campaigns.map(c => {
+  const payload = realCampaigns.map(c => {
     const { localStores: _, ...meta } = c;
     return meta;
   });
-  try {
-    const resp = await fetch(SYNC_PROXY, {
-      method : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body   : JSON.stringify(payload),
-    });
-    if (!resp.ok) console.warn('[ERA-VIS] Metadata push gagal:', resp.status);
-  } catch (e) {
-    console.warn('[ERA-VIS] Metadata push gagal:', e.message);
-  }
+  const ok = await _cloudPutCampaigns(payload);
+  if (!ok) console.warn('[ERA-VIS] Metadata push gagal (proxy & Apps Script langsung)');
 
   // Kirim localStores tiap Excel campaign ke Netlify Blobs
-  const excelCampaigns = campaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
+  const excelCampaigns = realCampaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
   await Promise.all(excelCampaigns.map(async c => {
     const minStores = _minStoresForSync(c);
     try {
@@ -869,8 +982,8 @@ async function pushCampaignsToCloud() {
     }
   }));
 
-  console.log('[ERA-VIS] Cloud push OK:', campaigns.length, 'campaigns');
-  return true;
+  console.log('[ERA-VIS] Cloud push:', ok ? 'OK' : 'GAGAL', '—', realCampaigns.length, 'campaigns');
+  return ok;
 }
 
 // Ambil localStores dari Netlify Blobs untuk campaigns yang belum punya
@@ -994,9 +1107,11 @@ async function cleanupStoredCampaigns() {
 
 // Force push semua campaign lokal ke cloud (untuk recovery / debug)
 async function forcePushToCloud() {
-  toast('Menyimpan ' + campaigns.length + ' campaign ke cloud...', 'info');
+  const n = campaigns.filter(c => !c._seed).length;
+  if (!n) { toast('Tidak ada campaign untuk disimpan (hanya seed default)', 'error'); return; }
+  toast('Menyimpan ' + n + ' campaign ke cloud...', 'info');
   const ok = await pushCampaignsToCloud();
-  if (ok) toast(campaigns.length + ' campaign berhasil disimpan ke cloud!', 'success');
+  toast(ok ? (n + ' campaign berhasil disimpan ke cloud!') : 'Gagal simpan ke cloud — cek koneksi / Apps Script', ok ? 'success' : 'error');
 }
 
 
