@@ -466,9 +466,10 @@ async function loadReminderPage(cid) {
       currentMasterData = parseMaster(rows, c.headerRow || DEFAULT_HEADER_ROW);
     }
 
-    // Populate region filter
-    const notDoneAll = currentMasterData.filter(s => s.status === STATUS.NOT_DONE);
-    const regions    = [...new Set(notDoneAll.map(s => s.region).filter(Boolean))].sort();
+    // Populate region filter — pakai semua toko peserta (DONE + NOT DONE) supaya
+    // opsi tidak ikut berubah saat filter Status di-switch
+    const inScopeAll = currentMasterData.filter(s => s.status === STATUS.DONE || s.status === STATUS.NOT_DONE);
+    const regions    = [...new Set(inScopeAll.map(s => s.region).filter(Boolean))].sort();
     const rSel       = document.getElementById('rem-region-filter');
     const prevReg    = rSel.value;
     rSel.innerHTML   = '<option value="">Semua Region</option>' +
@@ -476,7 +477,7 @@ async function loadReminderPage(cid) {
     if (prevReg && regions.includes(prevReg)) rSel.value = prevReg;
 
     // Populate city filter
-    const cities  = [...new Set(notDoneAll.map(s => s.city).filter(Boolean))].sort();
+    const cities  = [...new Set(inScopeAll.map(s => s.city).filter(Boolean))].sort();
     const cSel    = document.getElementById('rem-city-filter');
     const prevCity = cSel.value;
     cSel.innerHTML = '<option value="">Semua City</option>' +
@@ -494,19 +495,23 @@ async function loadReminderPage(cid) {
 function renderReminderTable() {
   const cid     = document.getElementById('rem-campaign-select').value;
   const c       = campaigns.find(x => x.id === cid);
+  const statusF = document.getElementById('rem-status-filter').value;   // '' | 'DONE' | 'NOT DONE'
   const regionF = document.getElementById('rem-region-filter').value;
   const cityF   = document.getElementById('rem-city-filter').value;
   const slF     = document.getElementById('rem-sl-filter').value;
 
-  let notDone = currentMasterData.filter(s => s.status === STATUS.NOT_DONE);
-  if (regionF) notDone = notDone.filter(s => s.region === regionF);
-  if (cityF)   notDone = notDone.filter(s => s.city   === cityF);
-  if (slF === 'ada')   notDone = notDone.filter(s =>  getSL(s.plantCode));
-  if (slF === 'belum') notDone = notDone.filter(s => !getSL(s.plantCode));
+  // Base: toko peserta campaign (DONE + NOT DONE), lalu dipersempit filter Status
+  const inScope = s => s.status === STATUS.DONE || s.status === STATUS.NOT_DONE;
+  let rows = currentMasterData.filter(inScope);
+  if (statusF) rows = rows.filter(s => s.status === statusF);
+  if (regionF) rows = rows.filter(s => s.region === regionF);
+  if (cityF)   rows = rows.filter(s => s.city   === cityF);
+  if (slF === 'ada')   rows = rows.filter(s =>  getSL(s.plantCode));
+  if (slF === 'belum') rows = rows.filter(s => !getSL(s.plantCode));
 
   // Update city filter when region changes
   if (regionF) {
-    const filtered = currentMasterData.filter(s => s.status === STATUS.NOT_DONE && s.region === regionF);
+    const filtered = currentMasterData.filter(s => inScope(s) && s.region === regionF && (!statusF || s.status === statusF));
     const cities   = [...new Set(filtered.map(s => s.city).filter(Boolean))].sort();
     const cSel     = document.getElementById('rem-city-filter');
     const prev     = cSel.value;
@@ -516,21 +521,31 @@ function renderReminderTable() {
   }
 
   const totalNd = currentMasterData.filter(s => s.status === STATUS.NOT_DONE).length;
-  document.getElementById('rem-count').textContent =
-    notDone.length === totalNd
+  const totalDn = currentMasterData.filter(s => s.status === STATUS.DONE).length;
+  const remCount = document.getElementById('rem-count');
+  if (statusF === STATUS.DONE) {
+    remCount.textContent = rows.length === totalDn
+      ? `${totalDn} sudah submit`
+      : `${rows.length} dari ${totalDn} sudah submit`;
+  } else if (statusF === STATUS.NOT_DONE) {
+    remCount.textContent = rows.length === totalNd
       ? `${totalNd} belum submit`
-      : `${notDone.length} dari ${totalNd} belum submit`;
+      : `${rows.length} dari ${totalNd} belum submit`;
+  } else {
+    remCount.textContent = `${rows.length} toko — ${totalNd} belum submit, ${totalDn} sudah`;
+  }
 
   const tbody = document.getElementById('rem-tbody');
-  if (!notDone.length) {
+  if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">${
-      totalNd ? 'Tidak ada toko yang cocok dengan filter' : 'Semua sudah submit! ✅'
+      (totalNd + totalDn) ? 'Tidak ada toko yang cocok dengan filter' : 'Semua sudah submit! ✅'
     }</td></tr>`;
     return;
   }
 
   const hist = reminderHistory[cid] || {};
-  tbody.innerHTML = notDone.map(s => {
+  tbody.innerHTML = rows.map(s => {
+    const isDone = s.status === STATUS.DONE;
     const h      = hist[s.plantCode];
     const lv     = h ? Math.min(h.level + 1, 3) : 1;
     const lb     = lv === 1 ? 'badge-sent' : lv === 2 ? 'badge-pending' : 'badge-escalated';
@@ -546,27 +561,32 @@ function renderReminderTable() {
         ? '<span style="color:var(--orange);font-size:11px">No HP kosong</span>'
         : '<span style="color:var(--red);font-size:11px">Tidak di DB</span>';
 
+    const levelCell = isDone
+      ? '<span class="badge badge-done">&#x2705; Sudah Submit</span>'
+      : `<span class="badge ${lb}">Lv.${lv} ${lt}</span>`;
+    const actionCell = isDone
+      ? '<span style="color:var(--muted)">&mdash;</span>'
+      : `<button class="btn btn-sm btn-green" ${hasPhone ? '' : 'disabled title="No HP belum ada"'}
+          onclick="${hasPhone ? `openSendModal('${esc(s.plantCode)}','${esc(s.plantDesc)}','${esc(sl.phone)}',${lv})` : 'void(0)'}">
+          Kirim
+        </button>`;
+
     return `<tr>
-      <td><input type="checkbox" class="rem-check" data-code="${esc(s.plantCode)}"></td>
+      <td><input type="checkbox" class="rem-check" data-code="${esc(s.plantCode)}" ${isDone ? 'disabled' : ''}></td>
       <td><strong>${esc(s.plantCode)}</strong></td>
       <td>${esc(s.plantDesc)}</td>
       <td>${esc(s.region)}</td>
       <td>${esc(s.city)}</td>
       <td style="font-size:12px">${slName}</td>
       <td>${slPhone}</td>
-      <td><span class="badge ${lb}">Lv.${lv} ${lt}</span></td>
-      <td>
-        <button class="btn btn-sm btn-green" ${hasPhone ? '' : 'disabled title="No HP belum ada"'}
-          onclick="${hasPhone ? `openSendModal('${esc(s.plantCode)}','${esc(s.plantDesc)}','${esc(sl.phone)}',${lv})` : 'void(0)'}">
-          Kirim
-        </button>
-      </td>
+      <td>${levelCell}</td>
+      <td>${actionCell}</td>
     </tr>`;
   }).join('');
 }
 
 function toggleAllReminder(el) {
-  document.querySelectorAll('.rem-check').forEach(cb => cb.checked = el.checked);
+  document.querySelectorAll('.rem-check').forEach(cb => { if (!cb.disabled) cb.checked = el.checked; });
 }
 
 
@@ -664,6 +684,7 @@ async function sendBulkReminder() {
   for (const cb of checked) {
     const code = cb.dataset.code;
     const s    = currentMasterData.find(x => x.plantCode === code); if (!s) continue;
+    if (s.status === STATUS.DONE) continue;   // jangan blast toko yang sudah submit
     const sl   = getSL(code);
     if (!sl) { toast('No HP tidak ada untuk ' + code, 'warn'); continue; }
     const h  = (reminderHistory[cid] || {})[code];
