@@ -126,6 +126,7 @@ function _campRenderCard(c) {
 
   return `<div class="campaign-card${urgent?' camp-urgent':''}" onclick="selectCampaignAndGo('${c.id}')">
     <div class="campaign-actions" onclick="event.stopPropagation()">
+      ${c.mode === 'excel' ? `<button title="Segarkan data toko dari cloud" onclick="refreshCampaignStores('${c.id}')">⟳</button>` : ''}
       <button title="Edit" onclick="openEditCampaign('${c.id}')">✎</button>
       <button class="del-btn" title="Hapus" onclick="deleteCampaign('${c.id}')">✕</button>
     </div>
@@ -219,6 +220,64 @@ function renderCampaignList() {
       <div class="campaign-list">${map[m].map(_campRenderCard).join('')}</div>
     </div>`;
   }).join('');
+}
+
+
+// ── SEGARKAN DATA TOKO DARI CLOUD ─────────────────────────────────
+// localStores hasil import Excel di-cache di localStorage device yang
+// meng-upload. Kalau device itu dulu meng-import file alokasi versi lama
+// (mis. sebelum satu toko ditambahkan ke daftar), cache itu tidak pernah
+// ikut terkoreksi: syncCampaignsFromCloud() selalu memenangkan localStores
+// lokal selama ada data region, dan pullLocalStoresFromCloud() hanya menarik
+// saat cache benar-benar kosong. Akibatnya satu device bisa terus menampilkan
+// daftar toko lama padahal cloud & device lain sudah lengkap.
+//
+// Tombol ⟳ di kartu campaign memanggil ini: tarik ulang versi cloud (Netlify
+// Blobs) untuk SATU campaign, timpa cache lokal, lalu paksa KPI dihitung ulang.
+async function refreshCampaignStores(id) {
+  const c = campaigns.find(x => x.id === id);
+  if (!c || c.mode !== 'excel') return;
+
+  const before = (c.localStores && c.localStores.length) || 0;
+  toast('Menarik data toko terbaru dari cloud…', 'info');
+  try {
+    const res = await fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const raw = await res.json();
+    // Campaign FBE long-format (1 baris = 1 toko + 1 materi) tidak boleh lewat
+    // sanitizeStores() — dedupe per plantCode-nya akan membuang baris materi.
+    const stores = c.fbeMode ? raw : sanitizeStores(raw);
+    if (!Array.isArray(stores) || !stores.length) {
+      toast('Cloud belum menyimpan data toko untuk campaign ini', 'error');
+      return;
+    }
+
+    const idx = campaigns.findIndex(x => x.id === id);
+    campaigns[idx] = { ...campaigns[idx], localStores: stores };
+    try { save(SK.campaigns, campaigns); }
+    catch (e) { console.warn('[ERA-VIS] localStorage penuh saat simpan localStores:', e.message); }
+
+    // Buang cache KPI lama supaya kartu & Dashboard menghitung ulang dari daftar baru.
+    if (dataCache[id]) {
+      delete dataCache[id];
+      try { save(SK.cache, dataCache); } catch (_) {}
+    }
+
+    renderCampaignList();
+    populateAllSelects();
+    if (typeof populateFbeSelect === 'function') populateFbeSelect();
+
+    const diff = stores.length - before;
+    toast(
+      diff === 0
+        ? `Data toko sudah sinkron dengan cloud (${stores.length} toko)`
+        : `Data toko disegarkan: ${before} → ${stores.length} toko`,
+      diff < 0 ? 'info' : 'success'
+    );
+  } catch (e) {
+    toast('Gagal menarik data toko: ' + e.message, 'error');
+  }
 }
 
 
