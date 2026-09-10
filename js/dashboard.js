@@ -21,6 +21,8 @@ async function loadCampaignData(cid) {
     // ── Fetch stores & submissions ──────────────────────────────
     let importRows = [];
 
+    const masterTokoPromise = fetchMasterToko(masterTokoConfig);
+
     if (c.mode === 'excel') {
       if (!c.localStores || !c.localStores.length) {
         // Belum ada di device ini (mis. dibuka di HP) — tarik dari cloud
@@ -44,7 +46,7 @@ async function loadCampaignData(cid) {
       currentImportData = parseImport(impRows);
     }
 
-    allMasterToko = await fetchMasterToko(masterTokoConfig);
+    allMasterToko = await masterTokoPromise;
 
     // ── Compute KPIs ────────────────────────────────────────────
     const ikut       = currentMasterData.length;

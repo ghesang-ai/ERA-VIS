@@ -37,6 +37,7 @@
       <button class="nav-btn" data-page="vmd-compliance"><span class="ico">&#x2705;</span> VMD COMPLIANCE<span class="badge-new">NEW</span></button>
       <div class="nav-sec">AI Agent</div>
       <button class="nav-btn" data-page="reminder"><span class="ico">&#x1F4E8;</span> Auto Reminder<span class="nav-badge red" id="nav-badge-reminder"></span></button>
+      <button class="nav-btn" data-page="blast"><span class="ico">&#x1F4E2;</span> WhatsApp Blast<span class="badge-new">NEW</span></button>
       <button class="nav-btn" data-page="logs"><span class="ico">&#x1F4DD;</span> Activity Log</button>
       <div class="nav-sec">Special Campaign</div>
       <button class="nav-btn" data-page="fbe"><span class="ico">&#x1F389;</span> FBE</button>
@@ -320,6 +321,59 @@
         <div class="card">
           <div class="card-head"><span class="card-title">Preview Pesan WhatsApp</span></div>
           <div class="card-body"><div class="tabs"><button class="tab active" onclick="switchMsgTab(this,1)">Level 1</button><button class="tab" onclick="switchMsgTab(this,2)">Level 2</button><button class="tab" onclick="switchMsgTab(this,3)">Level 3</button></div><div class="msg-preview" id="msg-preview"></div></div>
+        </div>
+      </div>
+
+
+      <!-- ===== WHATSAPP BLAST ===== -->
+      <div class="page" id="page-blast">
+        <div class="filter-row">
+          <select id="blast-source" onchange="onBlastSourceChange()">
+            <option value="all">Semua Store Leader (Database)</option>
+            <option value="campaign">Peserta Campaign Tertentu</option>
+          </select>
+          <select id="blast-campaign-select" onchange="onBlastCampaignChange()" style="display:none"><option value="">-- Pilih Campaign --</option></select>
+          <select id="blast-status-filter" onchange="renderBlastRecipients()" style="display:none">
+            <option value="">Semua Status</option>
+            <option value="DONE">DONE</option>
+            <option value="NOT DONE">NOT DONE</option>
+          </select>
+          <span id="blast-region-lock" title="WhatsApp Blast hanya untuk Region 5" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--purple-bg);color:var(--purple);font-size:12.5px;font-weight:700">&#x1F4CD; Region 5</span>
+          <select id="blast-city-filter" onchange="renderBlastRecipients()"><option value="">Semua City (Region 5)</option></select>
+          <button class="btn btn-sm btn-purple" onclick="sendBlast(true)">&#x1F4E4; Blast Terpilih</button>
+          <button class="btn btn-sm btn-orange" onclick="sendBlast(false)">&#x1F4E2; Blast Semua</button>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="card-title">Tulis Pesan Blast</span><span class="last-sync" id="blast-charcount"></span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <textarea id="blast-message" oninput="updateBlastPreview()" placeholder="Ketik informasi / pengumuman untuk Store Leader di sini..." style="min-height:140px"></textarea>
+              <div class="hint" style="margin-top:6px">
+                Klik untuk sisipkan variabel (otomatis diganti per penerima):
+                <span style="display:inline-flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                  <button type="button" class="btn btn-sm" onclick="insertBlastVar('{nama_sl}')">{nama_sl}</button>
+                  <button type="button" class="btn btn-sm" onclick="insertBlastVar('{nama_toko}')">{nama_toko}</button>
+                  <button type="button" class="btn btn-sm" onclick="insertBlastVar('{kode_store}')">{kode_store}</button>
+                  <button type="button" class="btn btn-sm" onclick="insertBlastVar('{region}')">{region}</button>
+                  <button type="button" class="btn btn-sm" onclick="insertBlastVar('{city}')">{city}</button>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="card-title">Preview Pesan WhatsApp</span></div>
+          <div class="card-body"><div class="msg-preview" id="blast-preview"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="card-title">Penerima</span><span class="last-sync" id="blast-count"></span></div>
+          <div class="card-body"><div class="tbl-wrap"><table><thead><tr>
+            <th><input type="checkbox" id="blast-check-all" onchange="toggleAllBlast(this)"></th>
+            <th>Kode Toko</th><th>Store Leader</th><th>No. HP</th><th>Region</th><th>City</th>
+          </tr></thead><tbody id="blast-tbody"></tbody></table></div></div>
         </div>
       </div>
 
@@ -900,6 +954,7 @@ Link form: {link_form}</textarea></div>
 <script src="js/dashboard.js"></script>
 <script src="js/stores.js?v=20260406"></script>
 <script src="js/campaigns.js?v=20260803b"></script>
+<script src="js/blast.js?v=20260910"></script>
 <script src="js/fbe.js"></script>
 <script src="js/fbeReportExport.js"></script>
 <script src="js/storeReportExport.js"></script>
@@ -950,6 +1005,7 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     if (p === 'summary-report') initSummaryReport();
     if (p === 'vmd-compliance') initVmdCompliance();
     if (p === 'fbe') populateFbeSelect();
+    if (p === 'blast') initBlastPage();
     closeSidebar();
     // Reset scroll ke atas — scroll di .main container (bukan window)
     if (mainEl) mainEl.scrollTop = 0;

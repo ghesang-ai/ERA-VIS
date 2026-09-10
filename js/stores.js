@@ -15,6 +15,8 @@ async function loadStoreData(cid) {
   resiStatusCache = _loadResiCache(cid);
 
   try {
+    const masterTokoPromise = fetchMasterToko(masterTokoConfig);
+
     if (c.mode === 'excel') {
       if (!c.localStores || !c.localStores.length) {
         // Belum ada di device ini (mis. dibuka di HP) — tarik dari cloud
@@ -46,7 +48,7 @@ async function loadStoreData(cid) {
     window._eravisWrDataCache = window._eravisWrDataCache || {};
     window._eravisWrDataCache[c.id] = currentMasterData.slice();
 
-    allMasterToko = await fetchMasterToko(masterTokoConfig);
+    allMasterToko = await masterTokoPromise;
 
     // ── Populate region filter ──────────────────────────────────
     const allStores = [...currentMasterData];
