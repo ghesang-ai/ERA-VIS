@@ -787,13 +787,15 @@ function handleSLDBFile(file) {
 function renderSLDBPreview() {
   const q       = (document.getElementById('sldb-search')?.value || '').toLowerCase();
   const entries = Object.entries(storeLeaderDB).filter(([k, v]) =>
-    !q || k.toLowerCase().includes(q) || v.name.toLowerCase().includes(q) || v.storeName.toLowerCase().includes(q)
+    !q || k.toLowerCase().includes(q) || v.name.toLowerCase().includes(q) ||
+    v.storeName.toLowerCase().includes(q) || (v.brand || '').toLowerCase().includes(q)
   );
   const tbody = document.getElementById('sldb-tbody');
   if (!tbody) return;
   tbody.innerHTML = entries.slice(0, 50).map(([code, v]) =>
     `<tr>
        <td><strong>${esc(code)}</strong></td>
+       <td>${v.brand ? `<span class="badge badge-sent">${esc(v.brand)}</span>` : '—'}</td>
        <td style="font-size:11px">${esc(v.storeName)}</td>
        <td>${esc(v.name)}</td>
        <td style="font-family:var(--mono);color:var(--teal)">${esc(v.phone)}</td>

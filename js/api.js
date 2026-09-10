@@ -445,6 +445,17 @@ function parseClosedStoresExcel(wb) {
  * Fix phone: cari kolom "contact" yang BUKAN "contact store" (landline).
  * Fix nomor: tambah "0" di depan jika angka tanpa leading zero.
  */
+// Petakan nama sheet / prefix SAP code -> nama brand rapi untuk pengelompokan.
+function slBrandFromSheet(sheetName, code) {
+  const s = String(sheetName || '').trim().toLowerCase();
+  const bySheet = { erafone: 'Erafone', samsung: 'Samsung', ibox: 'iBox', xiaomi: 'Xiaomi' };
+  if (bySheet[s]) return bySheet[s];
+  const p = String(code || '').trim().toUpperCase().charAt(0);
+  const byPrefix = { E: 'Erafone', F: 'Erafone', S: 'Samsung', X: 'iBox', N: 'Xiaomi' };
+  if (byPrefix[p]) return byPrefix[p];
+  return s ? s.replace(/\b\w/g, m => m.toUpperCase()) : '';
+}
+
 function parseStoreLeaderExcel(wb) {
   const db = {};
 
@@ -498,7 +509,12 @@ function parseStoreLeaderExcel(wb) {
       if (!code) return;
 
       const name = String(r[colName] || '').trim();
-      let phone  = String(r[colPhone] || '').trim().replace(/[^0-9+]/g, '');
+      // Sel bisa berisi >1 nomor ("0812... / 0816...", "0812..., 0816...",
+      // "0812... atau 0816..."). Ambil nomor PERTAMA saja supaya tidak
+      // tergabung jadi digit sampah.
+      let phone  = String(r[colPhone] || '').trim()
+        .split(/\s*(?:[\/,;|]|\batau\b|\bor\b)\s*|[\r\n]+/i)[0]
+        .replace(/[^0-9+]/g, '');
 
       // Tambah leading zero jika nomor diformat sebagai integer Excel (misal: 81292867708)
       if (phone && !phone.startsWith('0') && !phone.startsWith('+') && phone.length >= 9) {
@@ -512,6 +528,7 @@ function parseStoreLeaderExcel(wb) {
           name,
           phone,
           storeName : String(r[2] || '').trim(),
+          brand     : slBrandFromSheet(sn, code),
           updatedAt : new Date().toISOString(),
         };
       }
