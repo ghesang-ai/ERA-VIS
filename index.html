@@ -339,6 +339,7 @@
             <option value="NOT DONE">NOT DONE</option>
           </select>
           <span id="blast-region-lock" title="WhatsApp Blast hanya untuk Region 5" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--purple-bg);color:var(--purple);font-size:12.5px;font-weight:700">&#x1F4CD; Region 5</span>
+          <select id="blast-brand-filter" onchange="onBlastBrandChange()"><option value="">Semua Brand</option></select>
           <select id="blast-city-filter" onchange="renderBlastRecipients()"><option value="">Semua City (Region 5)</option></select>
           <button class="btn btn-sm btn-purple" onclick="sendBlast(true)">&#x1F4E4; Blast Terpilih</button>
           <button class="btn btn-sm btn-orange" onclick="sendBlast(false)">&#x1F4E2; Blast Semua</button>
@@ -355,6 +356,7 @@
                   <button type="button" class="btn btn-sm" onclick="insertBlastVar('{nama_sl}')">{nama_sl}</button>
                   <button type="button" class="btn btn-sm" onclick="insertBlastVar('{nama_toko}')">{nama_toko}</button>
                   <button type="button" class="btn btn-sm" onclick="insertBlastVar('{kode_store}')">{kode_store}</button>
+                  <button type="button" class="btn btn-sm" onclick="insertBlastVar('{brand}')">{brand}</button>
                   <button type="button" class="btn btn-sm" onclick="insertBlastVar('{region}')">{region}</button>
                   <button type="button" class="btn btn-sm" onclick="insertBlastVar('{city}')">{city}</button>
                 </span>
@@ -372,7 +374,7 @@
           <div class="card-head"><span class="card-title">Penerima</span><span class="last-sync" id="blast-count"></span></div>
           <div class="card-body"><div class="tbl-wrap"><table><thead><tr>
             <th><input type="checkbox" id="blast-check-all" onchange="toggleAllBlast(this)"></th>
-            <th>Kode Toko</th><th>Store Leader</th><th>No. HP</th><th>Region</th><th>City</th>
+            <th>Kode Toko</th><th>Brand</th><th>Store Leader</th><th>No. HP</th><th>Region</th><th>City</th>
           </tr></thead><tbody id="blast-tbody"></tbody></table></div></div>
         </div>
       </div>
@@ -467,7 +469,7 @@
                     <input type="text" id="sldb-search" placeholder="Cari toko..." style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;width:160px" oninput="renderSLDBPreview()">
                   </div>
                   <div class="tbl-wrap" style="max-height:220px;overflow-y:auto">
-                    <table style="font-size:11.5px"><thead><tr><th>Plant Code</th><th>Nama Toko</th><th>Store Leader</th><th>No HP</th></tr></thead><tbody id="sldb-tbody"></tbody></table>
+                    <table style="font-size:11.5px"><thead><tr><th>Plant Code</th><th>Brand</th><th>Nama Toko</th><th>Store Leader</th><th>No HP</th></tr></thead><tbody id="sldb-tbody"></tbody></table>
                   </div>
                 </div>
               </div>

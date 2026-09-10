@@ -133,6 +133,7 @@ function getBlastCandidates() {
         phone     : sl && sl.phone ? sl.phone : '',
         slName    : (sl && sl.name) || '',
         storeName : s.plantDesc || (sl && sl.storeName) || m.storeName || '',
+        brand     : (sl && sl.brand) || slBrandFromSheet('', code),
         region    : s.region || m.region || '',
         city      : s.city   || m.city   || '',
       };
@@ -148,6 +149,7 @@ function getBlastCandidates() {
       phone     : sl.phone || '',
       slName    : sl.name || '',
       storeName : sl.storeName || m.storeName || '',
+      brand     : sl.brand || slBrandFromSheet('', CODE),
       region    : m.region || '',
       city      : m.city   || '',
     };
@@ -161,43 +163,58 @@ function blastNormPhone(p) {
   return d;
 }
 
-// Penerima final: wajib punya HP, di Region 5, lolos filter City, dedupe per HP.
+// Penerima final: wajib punya HP, di Region 5, lolos filter Brand + City,
+// dedupe per HP.
 function getBlastRecipients() {
-  const cityF = document.getElementById('blast-city-filter').value;
+  const brandF = document.getElementById('blast-brand-filter').value;
+  const cityF  = document.getElementById('blast-city-filter').value;
 
   let list = getBlastCandidates().filter(r => r.phone && isBlastRegion(r.region));
-  if (cityF) list = list.filter(r => r.city === cityF);
+  if (brandF) list = list.filter(r => r.brand === brandF);
+  if (cityF)  list = list.filter(r => r.city  === cityF);
 
   const seen = new Map();
   list.forEach(r => {
     const key = blastNormPhone(r.phone);
     if (!key) return;
     if (!seen.has(key)) {
-      seen.set(key, { ...r, key, codes: [r.code], storeCount: 1 });
+      seen.set(key, { ...r, key, codes: [r.code], brands: r.brand ? [r.brand] : [], storeCount: 1 });
     } else {
       const e = seen.get(key);
       e.storeCount++;
       if (e.codes.length < 6) e.codes.push(r.code);
+      if (r.brand && !e.brands.includes(r.brand)) e.brands.push(r.brand);
     }
   });
   return [...seen.values()];
 }
 
 
-// ── FILTER CITY (hanya kota di Region 5) ─────────────────────────
+// ── FILTER BRAND + CITY (kandidat Region 5) ──────────────────────
 function populateBlastGeoFilters() {
-  const cities = [...new Set(
-    getBlastCandidates()
-      .filter(r => r.phone && isBlastRegion(r.region))
-      .map(r => r.city)
-      .filter(Boolean)
-  )].sort();
+  const pool = getBlastCandidates().filter(r => r.phone && isBlastRegion(r.region));
 
-  const cSel  = document.getElementById('blast-city-filter');
-  const prevC = cSel.value;
+  const brands = [...new Set(pool.map(r => r.brand).filter(Boolean))].sort();
+  const bSel   = document.getElementById('blast-brand-filter');
+  const prevB  = bSel.value;
+  bSel.innerHTML = '<option value="">Semua Brand</option>' +
+    brands.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
+  if (prevB && brands.includes(prevB)) bSel.value = prevB;
+
+  // City menyesuaikan brand yang sedang dipilih
+  let cityPool = pool;
+  if (bSel.value) cityPool = cityPool.filter(r => r.brand === bSel.value);
+  const cities = [...new Set(cityPool.map(r => r.city).filter(Boolean))].sort();
+  const cSel   = document.getElementById('blast-city-filter');
+  const prevC  = cSel.value;
   cSel.innerHTML = '<option value="">Semua City (Region 5)</option>' +
     cities.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   if (prevC && cities.includes(prevC)) cSel.value = prevC;
+}
+
+function onBlastBrandChange() {
+  populateBlastGeoFilters();   // refresh opsi City sesuai brand
+  renderBlastRecipients();
 }
 
 
@@ -213,12 +230,13 @@ function renderBlastRecipients() {
   label.textContent = `${rows.length} penerima unik` + (noPhone ? ` — ${noPhone} tanpa No. HP dilewati` : '');
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">
       ${document.getElementById('blast-source').value === 'campaign' && !blastCampaignStores
         ? 'Pilih campaign dulu'
         : 'Tidak ada Store Leader dengan No. HP yang cocok'}
     </td></tr>`;
     document.getElementById('blast-check-all').checked = false;
+    updateBlastPreview();
     return;
   }
 
@@ -226,9 +244,11 @@ function renderBlastRecipients() {
     const codeCell = r.storeCount > 1
       ? `<strong>${esc(r.codes[0])}</strong> <span class="badge badge-pending">+${r.storeCount - 1} toko</span>`
       : `<strong>${esc(r.code)}</strong>`;
+    const brandTxt = (r.brands && r.brands.length ? r.brands.join(', ') : r.brand) || '';
     return `<tr>
       <td><input type="checkbox" class="blast-check" data-key="${esc(r.key)}" checked></td>
       <td>${codeCell}</td>
+      <td>${brandTxt ? `<span class="badge badge-sent">${esc(brandTxt)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td style="font-size:12px">${esc(r.slName) || '<span style="color:var(--muted)">—</span>'}</td>
       <td><span style="font-family:var(--mono);font-size:11px;color:var(--teal)">${esc(r.phone)}</span></td>
       <td>${esc(r.region) || '<span style="color:var(--muted)">—</span>'}</td>
@@ -236,6 +256,8 @@ function renderBlastRecipients() {
     </tr>`;
   }).join('');
   document.getElementById('blast-check-all').checked = true;
+
+  updateBlastPreview();   // jaga sample preview tetap sesuai penerima pertama
 }
 
 function toggleAllBlast(el) {
@@ -249,6 +271,7 @@ function buildBlastMsg(tpl, r) {
     .replace(/\{nama_sl\}/g,    (r && r.slName)    || '')
     .replace(/\{nama_toko\}/g,  (r && r.storeName) || '')
     .replace(/\{kode_store\}/g, (r && r.code)      || '')
+    .replace(/\{brand\}/g,      (r && (r.brand || (r.brands && r.brands.join(', ')))) || '')
     .replace(/\{region\}/g,     (r && r.region)    || '')
     .replace(/\{city\}/g,       (r && r.city)      || '');
 }
@@ -259,7 +282,7 @@ function updateBlastPreview() {
 
   const sample = blastRecipientsCache[0] || {
     slName: 'Budi Santoso', storeName: 'Erafone Contoh Store',
-    code: 'S001', region: 'REGION 5', city: 'TANGERANG',
+    code: 'S001', brand: 'Erafone', region: 'REGION 5', city: 'TANGERANG',
   };
   const msg = buildBlastMsg(tpl, sample);
   document.getElementById('blast-preview').innerHTML = tpl.trim()
