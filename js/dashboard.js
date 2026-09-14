@@ -596,23 +596,31 @@ function renderInsights(ins) {
 
 
 // ── REFRESH ALL ────────────────────────────────────────────────────
-function refreshAllData() {
+async function refreshAllData() {
   const d = document.getElementById('dash-campaign-select').value;
   const s = document.getElementById('store-campaign-select').value;
 
   // Sync campaign list dulu (pull cloud + push local-only), lalu reload data
-  syncCampaignsFromCloud().then(result => {
-    if (result === true) {
-      // Cloud punya data terbaru → push local-only jika ada (sudah dilakukan di dalam sync)
-      // Reload dashboard dengan campaign aktif terbaru
-      const latestD = document.getElementById('dash-campaign-select').value;
-      const latestS = document.getElementById('store-campaign-select').value;
-      if (latestD) loadCampaignData(latestD);
-      if (latestS) loadStoreData(latestS);
-    } else {
-      if (d) loadCampaignData(d);
-      if (s) loadStoreData(s);
-    }
-    if (!d && !s && result !== true) toast('Pilih campaign terlebih dahulu', 'info');
-  });
+  const result = await syncCampaignsFromCloud();
+
+  const latestD = document.getElementById('dash-campaign-select').value;
+  const latestS = document.getElementById('store-campaign-select').value;
+  const activeD = result === true ? latestD : d;
+  const activeS = result === true ? latestS : s;
+
+  // syncCampaignsFromCloud() sengaja PERTAHANKAN localStores yang sudah ada
+  // di device ini (device lain mungkin belum push versi lengkap) — jadi
+  // campaign yang datanya sudah pernah diedit/diupload ulang di device LAIN
+  // tidak ikut terupdate hanya lewat sync di atas. Tombol "Refresh" dipencet
+  // user secara sengaja untuk menarik data terbaru, jadi paksa tarik ulang
+  // localStores dari cloud (sama seperti tombol ⟳ per-campaign) supaya
+  // Data Toko tidak menampilkan status basi.
+  for (const cid of new Set([activeD, activeS].filter(Boolean))) {
+    const camp = campaigns.find(x => x.id === cid);
+    if (camp && camp.mode === 'excel') await refreshCampaignStores(cid);
+  }
+
+  if (activeD) loadCampaignData(activeD);
+  if (activeS) loadStoreData(activeS);
+  if (!d && !s && result !== true) toast('Pilih campaign terlebih dahulu', 'info');
 }
