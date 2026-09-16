@@ -111,6 +111,12 @@ async function fetchBlastCampaignStores(cid) {
     stores = parseMaster(rows, c.headerRow || DEFAULT_HEADER_ROW);
   }
 
+  // Filter toko tutup — sama seperti loadStoreData()/loadReminderPage(),
+  // supaya toko yang sudah ditandai tutup di Settings tidak ikut di-blast
+  if (closedStoreCodes.size > 0) {
+    stores = stores.filter(s => !closedStoreCodes.has(normalizeKodeStore(s.plantCode)));
+  }
+
   return stores.filter(s => s.status === STATUS.DONE || s.status === STATUS.NOT_DONE);
 }
 
@@ -140,20 +146,22 @@ function getBlastCandidates() {
     });
   }
 
-  // mode === 'all' — semua entri Database Store Leader
-  return Object.entries(storeLeaderDB).map(([code, sl]) => {
-    const CODE = String(code).toUpperCase();
-    const m    = blastMasterLookup[CODE] || {};
-    return {
-      code      : CODE,
-      phone     : sl.phone || '',
-      slName    : sl.name || '',
-      storeName : sl.storeName || m.storeName || '',
-      brand     : sl.brand || slBrandFromSheet('', CODE),
-      region    : m.region || '',
-      city      : m.city   || '',
-    };
-  });
+  // mode === 'all' — semua entri Database Store Leader, minus toko tutup
+  return Object.entries(storeLeaderDB)
+    .filter(([code]) => !closedStoreCodes.has(normalizeKodeStore(code)))
+    .map(([code, sl]) => {
+      const CODE = String(code).toUpperCase();
+      const m    = blastMasterLookup[CODE] || {};
+      return {
+        code      : CODE,
+        phone     : sl.phone || '',
+        slName    : sl.name || '',
+        storeName : sl.storeName || m.storeName || '',
+        brand     : sl.brand || slBrandFromSheet('', CODE),
+        region    : m.region || '',
+        city      : m.city   || '',
+      };
+    });
 }
 
 // Normalisasi nomor untuk dedupe: hanya digit, awalan 0 -> 62.
