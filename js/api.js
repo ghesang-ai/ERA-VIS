@@ -429,7 +429,12 @@ function parseClosedStoresExcel(wb) {
     const col  = iCol >= 0 ? iCol : 2; // fallback kolom C
 
     rows.slice(hi + 1).forEach(r => {
-      const code = normalizeKodeStore(String(r[col] || ''));
+      // extractPlantCode (bukan normalizeKodeStore) — sheet toko tutup kadang
+      // punya >1 tabel bertumpuk, header tabel kedua ("PLANT CODE", "PLANT")
+      // ikut terbaca sebagai baris data kalau cuma di-uppercase/trim. Regex
+      // kode toko yang ketat di extractPlantCode otomatis membuang baris
+      // header ulang itu karena tidak ada digitnya.
+      const code = extractPlantCode(r[col]);
       if (code) codes.add(code);
     });
   });
