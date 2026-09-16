@@ -468,6 +468,14 @@ async function loadReminderPage(cid) {
       currentMasterData = parseMaster(rows, c.headerRow || DEFAULT_HEADER_ROW);
     }
 
+    // Filter toko tutup — sama seperti loadStoreData(), supaya toko yang
+    // sudah ditandai tutup di Settings tidak ikut muncul di reminder/blast
+    if (closedStoreCodes.size > 0) {
+      currentMasterData = currentMasterData.filter(
+        s => !closedStoreCodes.has(normalizeKodeStore(s.plantCode))
+      );
+    }
+
     // Populate region filter — pakai semua toko peserta (DONE + NOT DONE) supaya
     // opsi tidak ikut berubah saat filter Status di-switch
     const inScopeAll = currentMasterData.filter(s => s.status === STATUS.DONE || s.status === STATUS.NOT_DONE);
