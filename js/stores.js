@@ -746,6 +746,70 @@ function getSL(plantCode) {
   return storeLeaderDB[String(plantCode).toUpperCase()] || null;
 }
 
+// ── CLOUD SYNC (Netlify Blobs) ──────────────────────────────────────
+// Sebelumnya sldb & closedStores cuma hidup di localStorage device yang
+// upload — buka di browser/device lain langsung kosong. Sekarang tiap
+// upload di-push ke Blobs, dan boot app narik ulang dari cloud supaya
+// data (termasuk update rotasi bulanan) selalu sama di semua device.
+const SETTINGS_SYNC_PROXY = '/.netlify/functions/settings-sync';
+
+async function _pushSettingToCloud(key, data) {
+  try {
+    const res = await fetch(SETTINGS_SYNC_PROXY, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ key, data }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return true;
+  } catch (e) {
+    console.warn(`[ERA-VIS] settings-sync push (${key}) gagal:`, e.message);
+    return false;
+  }
+}
+
+async function _pullSettingFromCloud(key) {
+  try {
+    const res = await fetch(`${SETTINGS_SYNC_PROXY}?key=${key}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch (e) {
+    console.warn(`[ERA-VIS] settings-sync pull (${key}) gagal:`, e.message);
+    return null;
+  }
+}
+
+// Dipanggil saat boot & saat masuk halaman Settings. Cloud dianggap sumber
+// kebenaran begitu pernah ada upload; kalau cloud masih kosong (belum
+// pernah migrasi), data lokal browser ini dipertahankan.
+async function pullSettingsFromCloud() {
+  const [cloudSldb, cloudClosed] = await Promise.all([
+    _pullSettingFromCloud('sldb'),
+    _pullSettingFromCloud('closedStores'),
+  ]);
+
+  let changed = false;
+
+  if (cloudSldb && Object.keys(cloudSldb).length) {
+    storeLeaderDB = cloudSldb;
+    save(SK.sldb, storeLeaderDB);
+    changed = true;
+  }
+
+  if (Array.isArray(cloudClosed) && cloudClosed.length) {
+    closedStoreCodes = new Set(cloudClosed);
+    save(SK.closedStores, cloudClosed);
+    window._eravisWrDataCache = {};
+    changed = true;
+  }
+
+  if (changed && document.getElementById('page-settings')?.classList.contains('active')) {
+    initSLDBSettings();
+    initClosedStoresSettings();
+  }
+  return changed;
+}
+
 function handleSLDBDrop(e) {
   e.preventDefault();
   document.getElementById('sldb-dropzone').classList.remove('over');
@@ -756,7 +820,7 @@ function handleSLDBDrop(e) {
 function handleSLDBFile(file) {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function (e) {
+  reader.onload = async function (e) {
     try {
       const wb    = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
       const db    = parseStoreLeaderExcel(wb);
@@ -771,12 +835,17 @@ function handleSLDBFile(file) {
       document.getElementById('sldb-dropzone-label').textContent = `✓ ${file.name} (${count} toko)`;
       document.getElementById('sldb-badge').textContent          = count + ' toko';
       document.getElementById('sldb-status').innerHTML =
-        `<span style="color:var(--teal)">✓ ${count} Store Leader tersimpan. Diperbarui: ${new Date().toLocaleString('id-ID')}</span>`;
+        `<span style="color:var(--teal)">✓ ${count} Store Leader tersimpan. Menyinkronkan ke cloud…</span>`;
       document.getElementById('sldb-preview-wrap').style.display = '';
       renderSLDBPreview();
 
       addLog('system', `DB Store Leader diperbarui: ${count} toko dari ${file.name}`);
       toast(count + ' Store Leader tersimpan!');
+
+      const synced = await _pushSettingToCloud('sldb', storeLeaderDB);
+      document.getElementById('sldb-status').innerHTML = synced
+        ? `<span style="color:var(--teal)">✓ ${count} Store Leader tersimpan permanen (cloud). Diperbarui: ${new Date().toLocaleString('id-ID')}</span>`
+        : `<span style="color:var(--warn,#c0392b)">✓ ${count} Store Leader tersimpan di device ini, tapi gagal sync ke cloud (offline?). Coba upload ulang nanti.</span>`;
     } catch (err) {
       toast('Gagal baca Excel: ' + err.message, 'error');
     }
@@ -815,7 +884,7 @@ function handleClosedStoresDrop(event) {
 function handleClosedStoresFile(file) {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function (e) {
+  reader.onload = async function (e) {
     try {
       const wb    = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
       const codes = parseClosedStoresExcel(wb);
@@ -828,7 +897,7 @@ function handleClosedStoresFile(file) {
       document.getElementById('closed-dropzone-label').textContent  = `✓ ${file.name} (${codes.length} toko tutup)`;
       document.getElementById('closed-badge').textContent           = codes.length + ' toko';
       document.getElementById('closed-status').innerHTML =
-        `<span style="color:var(--teal)">✓ ${codes.length} toko tutup tersimpan. Diperbarui: ${new Date().toLocaleString('id-ID')}</span>`;
+        `<span style="color:var(--teal)">✓ ${codes.length} toko tutup tersimpan. Menyinkronkan ke cloud…</span>`;
       document.getElementById('closed-preview-wrap').style.display  = '';
       _renderClosedPreview(codes);
 
@@ -837,6 +906,11 @@ function handleClosedStoresFile(file) {
 
       addLog('system', `Closed Stores diperbarui: ${codes.length} toko dari ${file.name}`);
       toast(`${codes.length} toko tutup disimpan — semua campaign ter-update!`);
+
+      const synced = await _pushSettingToCloud('closedStores', codes);
+      document.getElementById('closed-status').innerHTML = synced
+        ? `<span style="color:var(--teal)">✓ ${codes.length} toko tutup tersimpan permanen (cloud). Diperbarui: ${new Date().toLocaleString('id-ID')}</span>`
+        : `<span style="color:var(--warn,#c0392b)">✓ ${codes.length} toko tutup tersimpan di device ini, tapi gagal sync ke cloud (offline?). Coba upload ulang nanti.</span>`;
     } catch (err) {
       toast('Gagal baca Excel: ' + err.message, 'error');
     }

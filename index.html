@@ -1002,7 +1002,7 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     if (lbl) lbl.textContent = PAGE_SUBLABELS[p] || '';
     if (p === 'campaigns')     renderCampaignList();
     if (p === 'logs')          renderLogs();
-    if (p === 'settings')      { loadSettings(); initSLDBSettings(); initClosedStoresSettings(); }
+    if (p === 'settings')      { loadSettings(); initSLDBSettings(); initClosedStoresSettings(); if (typeof pullSettingsFromCloud === 'function') pullSettingsFromCloud(); }
     if (p === 'weekly-report')  initWeeklyReport();
     if (p === 'summary-report') initSummaryReport();
     if (p === 'vmd-compliance') initVmdCompliance();
@@ -1085,6 +1085,9 @@ populateAllSelects();
 populateFbeSelect();
 renderCampaignList();
 loadSettings();
+
+// Sync Store Leader DB & Closed Stores dari cloud (permanen, cross-device)
+if (typeof pullSettingsFromCloud === 'function') pullSettingsFromCloud();
 
 // Sync campaigns dari cloud (jika CAMPAIGN_SYNC_URL sudah diisi di config.js)
 syncCampaignsFromCloud().then(result => {
