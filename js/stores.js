@@ -599,6 +599,60 @@ function toggleAllReminder(el) {
   document.querySelectorAll('.rem-check').forEach(cb => { if (!cb.disabled) cb.checked = el.checked; });
 }
 
+// Hapus toko yang dicentang dari daftar peserta campaign (localStores) —
+// lokal + cloud (Netlify Blobs), supaya device lain ikut bersih saat Refresh.
+async function deleteSelectedReminderStores() {
+  const codes = [...document.querySelectorAll('.rem-check:checked')].map(cb => cb.dataset.code);
+  if (!codes.length) { toast('Centang dulu', 'warn'); return; }
+
+  const cid = document.getElementById('rem-campaign-select').value;
+  const idx = campaigns.findIndex(x => x.id === cid);
+  const c   = campaigns[idx];
+  if (!c || c.mode !== 'excel' || !c.localStores) {
+    toast('Hapus toko hanya untuk campaign hasil upload Excel', 'error');
+    return;
+  }
+
+  const del   = new Set(codes);
+  const names = c.localStores.filter(s => del.has(s.plantCode)).map(s => `${s.plantCode} ${s.plantDesc}`);
+  if (!names.length) { toast('Toko tidak ditemukan di campaign', 'warn'); return; }
+  const preview = names.slice(0, 20).join('\n') + (names.length > 20 ? `\n… +${names.length - 20} lainnya` : '');
+  if (!confirm(`Hapus ${names.length} toko dari campaign "${c.name}"?\n\n${preview}\n\nTidak bisa dibatalkan (kecuali upload Excel ulang).`)) return;
+
+  const remaining = c.localStores.filter(s => !del.has(s.plantCode));
+  if (!remaining.length) { toast('Tidak bisa menghapus semua toko — hapus campaign-nya saja', 'error'); return; }
+
+  campaigns[idx] = { ...c, localStores: remaining };
+  try { save(SK.campaigns, campaigns); }
+  catch (e) { console.warn('[ERA-VIS] localStorage penuh saat simpan localStores:', e.message); }
+
+  // Cache KPI lama tidak valid lagi setelah daftar toko berubah
+  if (dataCache[cid]) {
+    delete dataCache[cid];
+    try { save(SK.cache, dataCache); } catch (_) {}
+  }
+
+  let cloudOk = false;
+  try {
+    const res = await fetch(STORE_SYNC_PROXY, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ id: cid, localStores: _minStoresForSync(campaigns[idx]) }),
+    });
+    cloudOk = res.ok;
+  } catch (e) { console.warn('[ERA-VIS] push localStores gagal:', e.message); }
+
+  addLog('system', `Hapus ${names.length} toko dari campaign ${c.name}: ${codes.join(', ')}`);
+  toast(
+    cloudOk
+      ? `${names.length} toko dihapus dari campaign`
+      : `${names.length} toko dihapus di device ini, tapi GAGAL sinkron ke cloud — ulangi nanti`,
+    cloudOk ? 'success' : 'warn'
+  );
+  document.getElementById('rem-check-all').checked = false;
+  loadReminderPage(cid);
+}
+
 
 // ── SEND MODAL ─────────────────────────────────────────────────────
 function openSendModal(code, name, phone, level) {
