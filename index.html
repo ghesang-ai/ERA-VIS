@@ -245,12 +245,13 @@
           <button class="btn btn-sm btn-copy-text" id="btn-copy-text" onclick="copyStoresToText()" style="display:none">&#x1F4CB; Copy To Text</button>
           <button class="btn btn-sm" id="btn-cek-resi" onclick="checkResiStatus()" title="Cuma cek resi toko yang lolos filter Region/Status/City/Search saat ini — persempit filter dulu supaya lebih cepat" style="background:var(--blue);color:#fff;display:none">&#x1F69A; Cek Status Resi</button>
           <button class="btn btn-sm" onclick="exportStoreAllPdf()">&#x1F4C4; Export All PDF</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSelectedStoreRows()">&#x1F5D1; Hapus Terpilih</button>
         </div>
         <div id="participation-summary" style="display:none"></div>
         <div class="card">
           <div class="card-head"><span class="card-title">Daftar Toko</span><span class="last-sync" id="store-count"></span></div>
           <div class="card-body"><div class="tbl-wrap">
-            <table><thead><tr><th>No</th><th>Region</th><th>Plant Code</th><th>Nama Toko</th><th>Status</th><th>City</th><th>No Resi</th><th>Status Resi</th><th>Dokumentasi</th></tr></thead><tbody id="store-tbody"></tbody></table>
+            <table><thead><tr><th><input type="checkbox" id="store-check-all" onchange="toggleAllStoreRows(this)"></th><th>No</th><th>Region</th><th>Plant Code</th><th>Nama Toko</th><th>Status</th><th>City</th><th>No Resi</th><th>Status Resi</th><th>Dokumentasi</th></tr></thead><tbody id="store-tbody"></tbody></table>
           </div></div>
         </div>
       </div>
@@ -308,6 +309,7 @@
           <select id="rem-sl-filter" onchange="renderReminderTable()"><option value="">Semua SL</option><option value="ada">Ada No HP</option><option value="belum">Belum Ada No HP</option></select>
           <button class="btn btn-sm btn-purple" onclick="scanAndRemind()">&#x1F916; Scan &amp; Kirim Reminder</button>
           <button class="btn btn-sm btn-orange" onclick="sendBulkReminder()">&#x1F4E8; Blast Terpilih</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSelectedReminderStores()">&#x1F5D1; Hapus Terpilih</button>
         </div>
         <div class="reminder-config">
           <div class="reminder-level rl-green"><div class="reminder-level-head"><div class="reminder-level-icon">&#x1F44B;</div><div class="reminder-level-title">Level 1 — Gentle</div></div><div class="reminder-level-desc">Hari ke-1 s/d 2. Pesan ramah.</div></div>
