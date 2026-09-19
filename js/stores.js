@@ -226,6 +226,10 @@ function renderStoreTable() {
 
   document.getElementById('store-count').textContent = stores.length + ' toko';
   const tbody = document.getElementById('store-tbody');
+  // renderStoreTable() dipanggil ulang (filter, cek resi tiap 5 resi) — jaga centang
+  const keepChecked = new Set([...document.querySelectorAll('.store-check:checked')].map(cb => cb.dataset.code));
+  const checkAll = document.getElementById('store-check-all');
+  if (checkAll) checkAll.checked = false;
 
   // Show/hide Cek Resi button based on whether campaign has resi data
   const hasResi = getDisplayStores().some(s => s.nomorResi && s.nomorResi.trim());
@@ -233,7 +237,7 @@ function renderStoreTable() {
   if (resiBtn) resiBtn.style.display = hasResi ? '' : 'none';
 
   if (!stores.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
     return;
   }
 
@@ -243,6 +247,7 @@ function renderStoreTable() {
                      :                                'badge-muted';
     const resi = s.nomorResi ? s.nomorResi.trim() : '';
     return `<tr>
+      <td><input type="checkbox" class="store-check" data-code="${esc(s.plantCode)}" ${keepChecked.has(s.plantCode) ? 'checked' : ''}></td>
       <td>${i + 1}</td>
       <td>${esc(s.region)}</td>
       <td><strong>${esc(s.plantCode)}</strong></td>
@@ -595,6 +600,10 @@ function renderReminderTable() {
   }).join('');
 }
 
+function toggleAllStoreRows(el) {
+  document.querySelectorAll('.store-check').forEach(cb => { cb.checked = el.checked; });
+}
+
 function toggleAllReminder(el) {
   document.querySelectorAll('.rem-check').forEach(cb => { if (!cb.disabled) cb.checked = el.checked; });
 }
@@ -606,21 +615,40 @@ async function deleteSelectedReminderStores() {
   if (!codes.length) { toast('Centang dulu', 'warn'); return; }
 
   const cid = document.getElementById('rem-campaign-select').value;
+  if (!await deleteStoresFromCampaign(cid, codes)) return;
+  document.getElementById('rem-check-all').checked = false;
+  loadReminderPage(cid);
+}
+
+// Hapus toko dari halaman Data Toko — logika sama, cuma beda sumber centang.
+async function deleteSelectedStoreRows() {
+  const codes = [...document.querySelectorAll('.store-check:checked')].map(cb => cb.dataset.code);
+  if (!codes.length) { toast('Centang dulu', 'warn'); return; }
+
+  const cid = document.getElementById('store-campaign-select').value;
+  if (!await deleteStoresFromCampaign(cid, codes)) return;
+  document.getElementById('store-check-all').checked = false;
+  loadStoreData(cid);
+}
+
+// Inti hapus: buang plantCode dari localStores campaign, simpan lokal + cloud.
+// Return true kalau data berubah (caller yang reload tampilannya).
+async function deleteStoresFromCampaign(cid, codes) {
   const idx = campaigns.findIndex(x => x.id === cid);
   const c   = campaigns[idx];
   if (!c || c.mode !== 'excel' || !c.localStores) {
     toast('Hapus toko hanya untuk campaign hasil upload Excel', 'error');
-    return;
+    return false;
   }
 
   const del   = new Set(codes);
   const names = c.localStores.filter(s => del.has(s.plantCode)).map(s => `${s.plantCode} ${s.plantDesc}`);
-  if (!names.length) { toast('Toko tidak ditemukan di campaign', 'warn'); return; }
+  if (!names.length) { toast('Toko tidak ditemukan di campaign', 'warn'); return false; }
   const preview = names.slice(0, 20).join('\n') + (names.length > 20 ? `\n… +${names.length - 20} lainnya` : '');
-  if (!confirm(`Hapus ${names.length} toko dari campaign "${c.name}"?\n\n${preview}\n\nTidak bisa dibatalkan (kecuali upload Excel ulang).`)) return;
+  if (!confirm(`Hapus ${names.length} toko dari campaign "${c.name}"?\n\n${preview}\n\nTidak bisa dibatalkan (kecuali upload Excel ulang).`)) return false;
 
   const remaining = c.localStores.filter(s => !del.has(s.plantCode));
-  if (!remaining.length) { toast('Tidak bisa menghapus semua toko — hapus campaign-nya saja', 'error'); return; }
+  if (!remaining.length) { toast('Tidak bisa menghapus semua toko — hapus campaign-nya saja', 'error'); return false; }
 
   campaigns[idx] = { ...c, localStores: remaining };
   try { save(SK.campaigns, campaigns); }
@@ -649,8 +677,7 @@ async function deleteSelectedReminderStores() {
       : `${names.length} toko dihapus di device ini, tapi GAGAL sinkron ke cloud — ulangi nanti`,
     cloudOk ? 'success' : 'warn'
   );
-  document.getElementById('rem-check-all').checked = false;
-  loadReminderPage(cid);
+  return true;
 }
 
 
