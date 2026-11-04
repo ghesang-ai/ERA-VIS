@@ -247,7 +247,13 @@ async function generateVmdCompliance() {
     _renderVmdTable();
     const exp = document.getElementById('vmd-export-btn');
     if (exp) exp.disabled = false;
+    const sb = document.getElementById('vmd-sheet-sync-btn');
+    if (sb) sb.disabled = false;
     toast(`VMD Compliance ${info.label} berhasil di-generate!`, 'success');
+
+    // Auto-kirim scoring 5 toko mall ke Google Sheet "5 Store Mall Performance"
+    // (silent — tidak mengganggu kalau proxy belum di-setup / network error)
+    _pushVmd5StoreToSheet(info, { silent: true });
 
   } catch (err) {
     console.error('[VMD] generate error:', err);
@@ -393,6 +399,44 @@ function exportVmdExcel() {
   const fname = `VMD_Compliance_${vmdState.monthLabel.replace(/\s+/g, '_')}_${vmdState.regionKey}.xlsx`;
   XLSX.writeFile(wb, fname);
   toast('Excel VMD Compliance berhasil diunduh!', 'success');
+}
+
+
+// ── SYNC: kirim scoring 5 toko mall ke Google Sheet "5 Store Mall Performance"
+// Lihat js/apps-script-vmd-5store-sync.gs + netlify/functions/vmd-5store-sync.js
+function _vmdMonthNameOnly(label) {
+  return (label || '').replace(/\s+\d{4}\s*$/, '').trim();
+}
+
+async function _pushVmd5StoreToSheet(info, opts) {
+  const silent = Boolean(opts && opts.silent);
+  if (typeof VMD_5STORE_CODES === 'undefined' || !VMD_5STORE_CODES.length) return;
+
+  const codes = new Set(VMD_5STORE_CODES.map(c => c.toUpperCase()));
+  const stores = vmdState.rows
+    .filter(r => codes.has((r.code || '').toUpperCase()))
+    .map(r => ({ code: r.code, score: r.score }));
+  if (!stores.length) return;
+
+  try {
+    const resp = await fetch(VMD_5STORE_SYNC_PROXY, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ month: _vmdMonthNameOnly(info.label), stores }),
+    });
+    const data = await resp.json();
+    if (!data || data.ok === false) throw new Error((data && data.error) || 'gagal sync');
+    if (!silent) toast(`Terkirim ke Sheet 5 Store Mall Performance (${data.written || 0} toko).`, 'success');
+  } catch (err) {
+    console.warn('[VMD] sync 5-store sheet gagal:', err.message);
+    if (!silent) toast('Gagal kirim ke Google Sheet: ' + err.message, 'error');
+  }
+}
+
+// Dipanggil dari tombol manual "Kirim ke 5 Store Mall"
+async function pushVmd5StoreToSheet() {
+  if (!vmdState.rows.length) { toast('Generate compliance dulu.', 'warn'); return; }
+  await _pushVmd5StoreToSheet(_vmdMonthInfo(vmdState.monthKey));
 }
 
 
