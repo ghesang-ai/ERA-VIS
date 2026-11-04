@@ -223,3 +223,10 @@ const DEFAULT_COUNTRY    = '+62';
 const DEFAULT_MASTER_SHEET = 'MASTER GHS';
 const DEFAULT_IMPORT_SHEET = 'IMPORTING';
 const DEFAULT_HEADER_ROW   = 6;
+
+
+// ── VMD COMPLIANCE → "5 Store Mall Performance" (Google Sheet) sync ──
+// SAP code 5 toko mall yang di-track di tab "VMD COMPLIANCE" sheet itu.
+// Lihat js/apps-script-vmd-5store-sync.gs untuk kode backend + cara deploy.
+const VMD_5STORE_CODES      = ['E281', 'E113', 'E029', 'M091', 'M019'];
+const VMD_5STORE_SYNC_PROXY = '/.netlify/functions/vmd-5store-sync';
