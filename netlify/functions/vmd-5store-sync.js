@@ -10,7 +10,7 @@
 
 // ⚠️ Isi URL ini SETELAH deploy js/apps-script-vmd-5store-sync.gs sebagai
 // Web App (Deploy → New deployment → Web app → Execute as Me → Anyone).
-const APPS_SCRIPT_URL = '';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGBcAL_4TcRqhvHK3HWbly6wNpX28HMVddoNgLje90rBZX_dMWV1vnY88zrJfdYosN/exec';
 
 const HEADERS = {
   'Access-Control-Allow-Origin' : '*',
