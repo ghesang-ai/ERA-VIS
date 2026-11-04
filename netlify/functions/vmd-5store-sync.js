@@ -41,23 +41,31 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Apps Script /exec redirect POST → harus follow redirect manual agar
-    // tetap pakai method POST (bukan GET seperti default fetch redirect)
+    // Apps Script /exec jalanin doPost (tulis datanya) PAS nerima POST ini,
+    // lalu redirect (302) ke script.googleusercontent.com/macros/echo buat
+    // ambil hasilnya — tapi URL echo itu CUMA terima GET (POST ke situ =
+    // 405). Jadi: request pertama ke /exec pakai POST (biar doPost jalan),
+    // redirect berikutnya WAJIB pakai GET (cuma ambil JSON hasil, bukan
+    // nulis lagi). Kalau ini ikut-ikutan POST, tulisannya tetap sukses
+    // (sudah kejadian di request pertama) tapi respons-nya 405 → keliatan
+    // gagal padahal datanya sudah masuk.
     let targetUrl = APPS_SCRIPT_URL;
+    let method    = 'POST';
     let resp;
     let redirects = 0;
 
     while (redirects <= 5) {
       resp = await fetch(targetUrl, {
-        method  : 'POST',
-        headers : { 'Content-Type': 'application/json' },
-        body    : event.body,
+        method  : method,
+        headers : method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
+        body    : method === 'POST' ? event.body : undefined,
         redirect: 'manual',
       });
 
       const location = resp.headers.get('location');
       if ((resp.status === 301 || resp.status === 302 || resp.status === 307 || resp.status === 308) && location) {
         targetUrl = location;
+        method    = 'GET';
         redirects++;
       } else {
         break;
