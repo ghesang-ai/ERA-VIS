@@ -988,7 +988,38 @@ let closedStoreCodes = new Set(JSON.parse(localStorage.getItem(SK.closedStores) 
 let currentMasterData = [], currentImportData = [], allMasterToko = [];
 let currentSendStore  = null;
 
-function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+// save() dulu gagal SENYAP saat localStorage penuh (quota exceeded) —
+// write dibuang begitu saja, cuma ke-log di console. Akibatnya: data toko
+// yang baru ditarik ulang dari cloud (mis. lewat tombol ⟳ Refresh) sempat
+// benar di memori, tapi begitu halaman di-reload, yang kebaca lagi versi
+// basi dari localStorage karena write-nya tadi gagal tanpa pernah tersimpan.
+// Sekarang: coba bebaskan ruang dulu (buang localStores campaign yang
+// sudah "ended" — aman, karena Data Toko otomatis menarik ulang dari cloud
+// begitu dibuka lagi, lihat loadStoreData() di js/stores.js), baru kalau
+// masih penuh juga, kasih tahu user lewat toast — bukan cuma console.warn.
+let _quotaWarned = false;
+function save(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); return; }
+  catch (e) { if (!e || e.name !== 'QuotaExceededError') throw e; }
+
+  try { localStorage.removeItem('eravis_ai_cache'); } catch (_) {}
+  try { localStorage.setItem(k, JSON.stringify(v)); return; } catch (_) {}
+
+  let retryValue = v;
+  if (k === SK.campaigns && Array.isArray(v)) {
+    retryValue = v.map(c => (c.status === 'ended' && c.localStores && c.localStores.length)
+      ? { ...c, localStores: [] } : c);
+  }
+  try { localStorage.setItem(k, JSON.stringify(retryValue)); return; } catch (_) {}
+
+  if (!_quotaWarned) {
+    _quotaWarned = true;
+    if (typeof toast === 'function') {
+      toast('Penyimpanan browser penuh — data terbaru mungkin tidak tersimpan di device ini. Buka pengaturan browser → bersihkan cache/data situs ini, lalu reload halaman.', 'error');
+    }
+  }
+  throw new Error('localStorage penuh walau sudah dibersihkan');
+}
 
 // ── NAV ───────────────────────────────────────────────────────────
 const mainEl = document.getElementById('main-area');
