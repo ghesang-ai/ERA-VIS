@@ -788,7 +788,11 @@ async function saveCampaign() {
       }
     }
   }
-  pushCampaignsToCloud();
+  // localStores campaign ini sudah di-push langsung di atas — jangan ikut
+  // re-push localStores campaign EXCEL LAIN pakai state device ini, yang
+  // bisa jadi basi (lihat catatan di atas pushCampaignsToCloud()). Cukup
+  // propagate metadata (nama/deadline/status/dll).
+  pushCampaignsToCloud([]);
   closeModal('modal-add');
   renderCampaignList();
   populateAllSelects();
@@ -960,8 +964,11 @@ async function syncCampaignsFromCloud() {
     campaigns = next;
     try { save(SK.campaigns, campaigns); } catch (e) { console.warn('[ERA-VIS] localStorage penuh saat simpan hasil sync:', e.message); }
     // Hanya push ke cloud jika ada campaign lokal yang belum ada di cloud —
-    // hindari overwrite cloud dengan data stale saat sync
-    if (localOnly.length > 0) pushCampaignsToCloud();
+    // hindari overwrite cloud dengan data stale saat sync. Push localStores
+    // cuma punya campaign localOnly itu sendiri, bukan semua excel campaign
+    // yang kebetulan ada di state device ini (lihat catatan di
+    // pushCampaignsToCloud()).
+    if (localOnly.length > 0) pushCampaignsToCloud(localOnly.map(c => c.id));
     // Ambil localStores dari Netlify Blobs untuk campaign yang belum punya
     await pullLocalStoresFromCloud();
     // Buang sisa baris non-toko dari data lama (lokal maupun cloud)
@@ -1009,7 +1016,22 @@ function _minStoresForSync(c) {
       }));
 }
 
-async function pushCampaignsToCloud() {
+// storeIds mengontrol campaign MANA yang localStores-nya ikut di-push ulang
+// ke Netlify Blobs:
+//   undefined → semua excel campaign (dipakai forcePushToCloud() / full resync)
+//   []        → metadata saja, localStores TIDAK disentuh sama sekali
+//   [id, ...] → hanya campaign dengan id itu
+//
+// Kenapa ini penting: dulu pushCampaignsToCloud() SELALU re-push localStores
+// SEMUA excel campaign yang ada di state lokal device yang manggil — bukan
+// cuma campaign yang baru diedit. Device/tab lain yang masih punya cache
+// localStores BASI untuk campaign lain (mis. belum di-reload berhari-hari)
+// otomatis ikut menimpa versi cloud yang lebih baru begitu device itu
+// melakukan aksi TAK TERKAIT sama sekali (edit/hapus campaign lain) — karena
+// setiap saveCampaign()/deleteCampaign() memanggil fungsi ini. Itu sebabnya
+// jumlah toko sebuah campaign bisa "balik sendiri" ke angka lama "setelah
+// beberapa lama", walau tidak ada yang sengaja upload ulang versi lama.
+async function pushCampaignsToCloud(storeIds) {
   // Jangan pernah push kalau isinya cuma seed default — ini sering terjadi saat
   // localStorage baru dievikasi; push-nya akan MENIMPA cloud yang sebenarnya berisi.
   const realCampaigns = campaigns.filter(c => !c._seed);
@@ -1026,8 +1048,12 @@ async function pushCampaignsToCloud() {
   const ok = await _cloudPutCampaigns(payload);
   if (!ok) console.warn('[ERA-VIS] Metadata push gagal (proxy & Apps Script langsung)');
 
-  // Kirim localStores tiap Excel campaign ke Netlify Blobs
-  const excelCampaigns = realCampaigns.filter(c => c.mode === 'excel' && c.localStores?.length);
+  // Kirim localStores ke Netlify Blobs — cuma untuk campaign yang diminta
+  // (lihat storeIds di atas), bukan ngasal semua excel campaign.
+  const idSet = Array.isArray(storeIds) ? new Set(storeIds) : null;
+  const excelCampaigns = realCampaigns.filter(c =>
+    c.mode === 'excel' && c.localStores?.length && (!idSet || idSet.has(c.id))
+  );
   await Promise.all(excelCampaigns.map(async c => {
     const minStores = _minStoresForSync(c);
     try {
@@ -1281,7 +1307,10 @@ function deleteCampaign(id) {
   if (!deletedIds.includes(id)) deletedIds.push(id);
   localStorage.setItem(SK.deleted, JSON.stringify(deletedIds));
   save(SK.campaigns, campaigns);
-  pushCampaignsToCloud();
+  // Metadata saja — localStores campaign lain di device ini TIDAK ikut
+  // di-push ulang (lihat catatan di pushCampaignsToCloud()); campaign yang
+  // dihapus blob-nya dibuang eksplisit lewat DELETE di bawah.
+  pushCampaignsToCloud([]);
   // Hapus localStores dari Netlify Blobs juga
   fetch(`${STORE_SYNC_PROXY}?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
   renderCampaignList();
