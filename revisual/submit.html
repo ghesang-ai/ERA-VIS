@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#E30613">
+<title>ERA-REVISUAL · Submit Wall Branding</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --red: #E30613; --red-bg: #FFF1F2; --yellow: #FFD600;
+    --ink: #0F172A; --muted: #64748B; --border: #E2E8F0; --border2: #CBD5E1;
+    --page: #F8FAFC; --green: #16A34A; --green-bg: #F0FDF4; --gold: #B45309; --gold-bg: #FFFBEB;
+    --font: 'Inter', system-ui, sans-serif; --mono: ui-monospace, Menlo, monospace;
+  }
+  body { font-family: var(--font); background: var(--page); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .top { background: linear-gradient(120deg, #E30613, #FF3B2F); color: #fff; padding: 22px 16px 54px; }
+  .top .eyebrow { font: 700 11px var(--mono); letter-spacing: 1.4px; opacity: .85; }
+  .top h1 { font-size: 22px; font-weight: 900; letter-spacing: -.4px; margin-top: 4px; }
+  .top h1 span { color: var(--yellow); }
+  .top p { font-size: 13px; opacity: .92; margin-top: 6px; }
+  .top .dl { display: inline-block; margin-top: 10px; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); border-radius: 20px; padding: 4px 11px; font-size: 12px; font-weight: 600; }
+  main { max-width: 560px; margin: -38px auto 40px; padding: 0 12px; }
+  .card { background: #fff; border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(15,23,42,.06); padding: 18px 16px; margin-bottom: 14px; }
+  .card.locked { opacity: .45; pointer-events: none; }
+  .step { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .step b { width: 26px; height: 26px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-size: 13px; flex-shrink: 0; }
+  .step h2 { font-size: 15px; font-weight: 800; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 10px 0 5px; }
+  input[type=text], input[type=tel], input[type=number] {
+    width: 100%; border: 1.5px solid var(--border2); border-radius: 12px; padding: 12px; font: 500 16px var(--font); color: var(--ink); background: #fff;
+  }
+  input:focus { outline: none; border-color: var(--red); box-shadow: 0 0 0 3px rgba(227,6,19,.12); }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { flex: 1; }
+  .row .x { flex: 0; color: var(--muted); font-weight: 800; }
+  button { font: 700 15px var(--font); border: 0; border-radius: 12px; padding: 12px 18px; cursor: pointer; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-red:disabled { background: #F3A3A8; cursor: wait; }
+  .btn-ghost { background: #fff; color: var(--red); border: 1.5px dashed var(--red); width: 100%; }
+  .btn-cek { flex: 0 0 auto; }
+  .msg { margin-top: 10px; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 600; display: none; }
+  .msg.ok { display: block; background: var(--green-bg); color: var(--green); }
+  .msg.err { display: block; background: var(--red-bg); color: var(--red); }
+  .msg.warn { display: block; background: var(--gold-bg); color: var(--gold); }
+  .chip { display: inline-block; padding: 8px 12px; border-radius: 20px; border: 1.5px solid var(--red); background: var(--red-bg); color: var(--red); font-weight: 700; font-size: 13px; }
+  .wall { border: 1.5px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+  .wall-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .wall-h strong { font-size: 14px; }
+  .wall-h button { background: none; color: var(--muted); font-size: 12px; padding: 4px 6px; }
+  .slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .slot { position: relative; aspect-ratio: 4/5; border: 1.5px dashed var(--border2); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6px; background: #FAFAFA; cursor: pointer; }
+  .slot { margin: 0; color: var(--ink); }
+  .slot.req { border-color: #F3A3A8; }
+  .slot .plus { font-size: 26px; color: var(--muted); line-height: 1; }
+  .slot .t { font-size: 12px; font-weight: 700; margin-top: 4px; }
+  .slot .h { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+  .slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .slot.has { border-style: solid; border-color: var(--green); }
+  .slot .lab { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.62); color: #fff; font-size: 11px; font-weight: 700; padding: 4px; }
+  .slot .busy { position: absolute; inset: 0; background: rgba(255,255,255,.8); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--red); }
+  .slot input { display: none; }
+  .tips { font-size: 12px; color: var(--muted); background: var(--page); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .tips li { margin-left: 16px; }
+  .submit { width: 100%; padding: 15px; font-size: 16px; }
+  .done { text-align: center; padding: 28px 16px; }
+  .done .ico { font-size: 52px; }
+  .done h2 { font-size: 22px; font-weight: 900; margin-top: 6px; }
+  .ticket { font: 800 26px var(--mono); background: var(--gold-bg); color: var(--gold); border-radius: 14px; padding: 14px; margin: 14px 0; letter-spacing: 1px; }
+  .done p { font-size: 13px; color: var(--muted); }
+  .hidden { display: none !important; }
+  .foot { text-align: center; font-size: 11px; color: var(--muted); margin-top: 18px; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="eyebrow">📢 ERA-REVISUAL · REGION 5</div>
+  <h1>Wall Branding — <span>Upgrade Terus</span></h1>
+  <p>Foto &amp; ukur wall branding Upgrade Terus di toko kamu. ±5 menit dari HP.</p>
+  <span class="dl">⏰ Deadline: 27 November 2026</span>
+</div>
+
+<main id="form-area">
+  <!-- 1. Plant Code -->
+  <section class="card">
+    <div class="step"><b>1</b><h2>Plant Code toko</h2></div>
+    <div class="row">
+      <input type="text" id="code" placeholder="Contoh: E506" autocapitalize="characters" autocomplete="off">
+      <button class="btn-red btn-cek" id="btn-cek">Cek</button>
+    </div>
+    <div class="msg" id="cek-msg"></div>
+  </section>
+
+  <!-- 2. Data diri -->
+  <section class="card locked" id="sec-data">
+    <div class="step"><b>2</b><h2>Data pengirim</h2></div>
+    <label for="nama">Nama</label>
+    <input type="text" id="nama" placeholder="Nama lengkap" autocomplete="name">
+    <label for="hp">No. HP</label>
+    <input type="tel" id="hp" placeholder="08xxxxxxxxxx" autocomplete="tel">
+    <label>Kategori</label>
+    <span class="chip">Wall Branding = Upgrade Terus</span>
+  </section>
+
+  <!-- 3. Wall -->
+  <section class="card locked" id="sec-wall">
+    <div class="step"><b>3</b><h2>Foto &amp; ukuran wall</h2></div>
+    <ul class="tips">
+      <li><b>Depan</b> (wajib): ambil lurus, lantai sampai plafon terlihat</li>
+      <li><b>Meteran</b> (wajib): angka meteran harus terbaca</li>
+      <li>Sudut kiri/kanan &amp; area sekitar: opsional</li>
+    </ul>
+    <div id="walls"></div>
+    <button class="btn-ghost" id="btn-add">+ Tambah Wall</button>
+  </section>
+
+  <!-- 4. Kirim -->
+  <section class="card locked" id="sec-send">
+    <div class="step"><b>4</b><h2>Kirim</h2></div>
+    <button class="btn-red submit" id="btn-send">Kirim</button>
+    <div class="msg" id="send-msg"></div>
+  </section>
+  <div class="foot">ERA-VIS · Visual Merchandising Region 5</div>
+</main>
+
+<main id="done-area" class="hidden">
+  <section class="card done">
+    <div class="ico">✅</div>
+    <h2>Terkirim!</h2>
+    <p id="done-store"></p>
+    <div class="ticket" id="done-ticket"></div>
+    <p><b>Simpan nomor tiket ini.</b><br>Salah foto/ukuran? Buka link yang sama, masukkan Plant Code lagi, ganti yang salah → Kirim. Data lama otomatis ditimpa.</p>
+  </section>
+</main>
+
+<script>
+'use strict';
+const API = '/.netlify/functions/revisual-sync';
+const SLOTS = [
+  { key: 'depan',   t: 'Depan',   h: 'Wajib · lurus, lantai–plafon', req: true },
+  { key: 'meteran', t: 'Meteran', h: 'Wajib · angka terbaca',        req: true },
+  { key: 'kiri',    t: 'Sudut Kiri',  h: 'Opsional' },
+  { key: 'kanan',   t: 'Sudut Kanan', h: 'Opsional' },
+  { key: 'sekitar', t: 'Area Sekitar', h: 'Opsional' },
+];
+
+const $ = id => document.getElementById(id);
+let state = { code: '', store: null, walls: [], startedAt: new Date().toISOString() };
+let busy = 0;
+
+function msg(el, text, kind) { el.textContent = text; el.className = 'msg ' + (kind || ''); }
+function unlock(on) { ['sec-data', 'sec-wall', 'sec-send'].forEach(id => $(id).classList.toggle('locked', !on)); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+const photoUrl = key => `${API}?photo=${encodeURIComponent(key)}`;
+
+async function api(method, params, body) {
+  const url = API + (params ? '?' + new URLSearchParams(params) : '');
+  const res = await fetch(url, body ? { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { method });
+  let data = {};
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error(data.error || `Gagal (HTTP ${res.status})`);
+  return data;
+}
+
+// ── 1. Cek Plant Code ─────────────────────────────────────────────
+async function cek() {
+  const code = $('code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!code) return msg($('cek-msg'), 'Isi Plant Code dulu.', 'err');
+  $('btn-cek').disabled = true; $('btn-cek').textContent = '...';
+  try {
+    const r = await api('GET', { check: code });
+    state.code = code; state.store = r.store;
+    $('code').value = code;
+    const ex = r.existing;
+    if (ex) {
+      msg($('cek-msg'), `✓ ${r.store.storeName || code} — sudah pernah submit (tiket ${ex.ticket}). Ganti yang salah lalu Kirim, data lama akan ditimpa.`, 'warn');
+      $('nama').value = ex.nama || ''; $('hp').value = ex.hp || '';
+      state.walls = ex.walls.map(w => ({ w: w.w, h: w.h, photos: { ...w.photos } }));
+    } else {
+      msg($('cek-msg'), `✓ ${r.store.storeName || code}`, 'ok');
+      if (r.store.slName && !$('nama').value) $('nama').value = r.store.slName;
+      state.walls = [newWall()];
+    }
+    unlock(true); renderWalls();
+  } catch (e) {
+    unlock(false); msg($('cek-msg'), e.message, 'err');
+  } finally {
+    $('btn-cek').disabled = false; $('btn-cek').textContent = 'Cek';
+  }
+}
+$('btn-cek').onclick = cek;
+$('code').addEventListener('keydown', e => { if (e.key === 'Enter') cek(); });
+
+// ── 3. Walls ──────────────────────────────────────────────────────
+function newWall() { return { w: '', h: '', photos: {} }; }
+
+function renderWalls() {
+  $('walls').innerHTML = state.walls.map((w, i) => `
+    <div class="wall">
+      <div class="wall-h"><strong>Wall #${i + 1}</strong>${state.walls.length > 1 ? `<button data-rm="${i}">✕ Hapus</button>` : ''}</div>
+      <div class="slots">${SLOTS.map(s => {
+        const k = w.photos[s.key];
+        return `<label class="slot ${s.req ? 'req' : ''} ${k ? 'has' : ''}" data-w="${i}" data-s="${s.key}">
+          ${k ? `<img src="${photoUrl(k)}" alt=""><span class="lab">${s.t} ✓ · ketuk untuk ganti</span>`
+              : `<span class="plus">📷</span><span class="t">${s.t}${s.req ? ' *' : ''}</span><span class="h">${s.h}</span>`}
+          <input type="file" accept="image/*" data-w="${i}" data-s="${s.key}">
+        </label>`;
+      }).join('')}</div>
+      <label>Ukuran (cm)</label>
+      <div class="row">
+        <input type="number" inputmode="numeric" min="1" placeholder="Lebar" value="${esc(w.w)}" data-w="${i}" data-dim="w">
+        <span class="x">×</span>
+        <input type="number" inputmode="numeric" min="1" placeholder="Tinggi" value="${esc(w.h)}" data-w="${i}" data-dim="h">
+      </div>
+    </div>`).join('');
+}
+
+$('walls').addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.dim) state.walls[t.dataset.w][t.dataset.dim] = t.value;
+});
+$('walls').addEventListener('click', e => {
+  const rm = e.target.closest('[data-rm]');
+  if (rm) { state.walls.splice(Number(rm.dataset.rm), 1); renderWalls(); }
+});
+$('walls').addEventListener('change', async e => {
+  const t = e.target;
+  if (t.type !== 'file' || !t.files[0]) return;
+  const wi = Number(t.dataset.w), slot = t.dataset.s;
+  const box = t.closest('.slot');
+  box.insertAdjacentHTML('beforeend', '<div class="busy">Upload…</div>');
+  busy++;
+  try {
+    const data = await compress(t.files[0]);
+    const r = await api('POST', null, { action: 'photo', code: state.code, data });
+    state.walls[wi].photos[slot] = r.key;
+  } catch (err) {
+    alert('Upload foto gagal: ' + err.message + '\nCoba lagi.');
+  } finally {
+    busy--; renderWalls();
+  }
+});
+$('btn-add').onclick = () => { state.walls.push(newWall()); renderWalls(); };
+
+// Kompres di HP sebelum upload: maks 1280 px, JPEG ~0.72
+function compress(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1280, s = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('file bukan gambar')); };
+    img.src = url;
+  });
+}
+
+// ── 4. Kirim ──────────────────────────────────────────────────────
+$('btn-send').onclick = async () => {
+  const m = $('send-msg');
+  if (busy) return msg(m, 'Tunggu, foto masih di-upload…', 'warn');
+  const nama = $('nama').value.trim(), hp = $('hp').value.replace(/[^0-9+]/g, '');
+  if (!nama) return msg(m, 'Isi Nama dulu.', 'err');
+  if (hp.length < 9) return msg(m, 'No. HP belum benar.', 'err');
+  for (const [i, w] of state.walls.entries()) {
+    if (!w.photos.depan)   return msg(m, `Wall #${i + 1}: foto Depan wajib.`, 'err');
+    if (!w.photos.meteran) return msg(m, `Wall #${i + 1}: foto Meteran wajib.`, 'err');
+    if (!(Number(w.w) > 0 && Number(w.h) > 0)) return msg(m, `Wall #${i + 1}: isi ukuran Lebar × Tinggi.`, 'err');
+  }
+  $('btn-send').disabled = true; $('btn-send').textContent = 'Mengirim…';
+  try {
+    const r = await api('POST', null, {
+      action: 'submit', code: state.code, nama, hp, startedAt: state.startedAt,
+      walls: state.walls.map(w => ({ w: Number(w.w), h: Number(w.h), photos: w.photos })),
+    });
+    $('done-store').textContent = `${state.store.storeName || state.code} · ${state.walls.length} wall${r.version > 1 ? ' · data lama ditimpa' : ''}`;
+    $('done-ticket').textContent = r.ticket;
+    $('form-area').classList.add('hidden');
+    $('done-area').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  } catch (e) {
+    msg(m, e.message, 'err');
+    $('btn-send').disabled = false; $('btn-send').textContent = 'Kirim';
+  }
+};
+</script>
+</body>
+</html>
