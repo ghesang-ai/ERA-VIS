@@ -852,7 +852,7 @@ Link form: {link_form}</textarea></div>
 
       <!-- ===== ERA-REVISUAL: WALL BRANDING (MOCKUP) ===== -->
       <div class="page" id="page-revisual-wall">
-        <span class="rv-mock-flag">&#x1F6A7; MOCKUP &mdash; data submission di bawah masih data contoh</span>
+        <span class="rv-mock-flag" id="rv-mock-flag" style="display:none">&#x1F6A7; MOCKUP &mdash; backend belum bisa dihubungi, data di bawah masih data contoh</span>
 
         <div class="rv-hero">
           <div style="position:relative;z-index:1">
@@ -870,7 +870,7 @@ Link form: {link_form}</textarea></div>
             <div class="rv-deadline">Deadline submit: <b>27 November 2026</b></div>
             <div class="rv-hero-btns">
               <button class="btn btn-sm" onclick="rvCopy(RV_CONFIG.submitUrl,'Link submit disalin')">&#x1F517; Copy Link</button>
-              <a class="btn btn-sm ghost" href="https://era-revisual-wallbranding.netlify.app/submit" target="_blank" rel="noopener">Buka Form &#x2197;</a>
+              <a class="btn btn-sm ghost" href="/revisual/submit" target="_blank" rel="noopener">Buka Form &#x2197;</a>
             </div>
           </div>
         </div>
@@ -901,7 +901,8 @@ Link form: {link_form}</textarea></div>
                     <option value="BELUM">&#x1F534; Belum Submit</option>
                   </select>
                   <input type="text" id="rv-search" placeholder="Cari toko / plant code / kota...">
-                  <button class="btn btn-teal" disabled title="Tersedia setelah backend disambungkan">&#x2B07; Export Excel</button>
+                  <button class="btn" onclick="initRevisual()">&#x27F3; Refresh</button>
+                  <button class="btn btn-teal" onclick="rvExportExcel()">&#x2B07; Export Excel</button>
                 </div>
                 <div class="tbl-wrap" id="rv-table"></div>
               </div>

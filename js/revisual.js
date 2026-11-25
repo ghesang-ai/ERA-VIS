@@ -1,13 +1,15 @@
 // ================================================================
 // ERA-REVISUAL — Wall Branding "Upgrade Terus" (Region 5)
 // ----------------------------------------------------------------
-// STATUS: MOCKUP. Semua data submission di halaman ini adalah DATA
-// CONTOH (dummy) untuk preview tampilan. Belum ada backend — nanti
-// disambungkan ke form https://era-revisual-wallbranding.netlify.app/submit
+// Data asli dari form HP  /revisual/submit  (backend: netlify/functions/
+// revisual-sync.js, Netlify Blobs). Kalau backend tidak bisa dihubungi
+// (mis. dibuka lewat server lokal biasa), halaman jatuh ke DATA CONTOH
+// dan menampilkan label MOCKUP.
 // ================================================================
 
 const RV_CONFIG = {
-  submitUrl : 'https://era-revisual-wallbranding.netlify.app/submit',
+  submitUrl : 'https://era-vis.netlify.app/revisual/submit',
+  api       : '/.netlify/functions/revisual-sync',
   deadline  : '2026-11-27T23:59:59+07:00',
   deadlineLabel: '27 November 2026',
   target    : 'SOB Aksesoris +10%',
@@ -53,6 +55,8 @@ const RV_STATUS = {
 
 let rvRows = [];
 let rvInited = false;
+let rvMock = false;
+const rvPhotoUrl = key => `${RV_CONFIG.api}?photo=${encodeURIComponent(key)}`;
 
 // Pseudo-random deterministik supaya mockup stabil tiap reload
 function rvRand(seed) {
@@ -66,13 +70,45 @@ function rvRand(seed) {
   };
 }
 
-function rvBuildRows() {
+function rvRegion5Stores() {
   let stores = [];
   if (typeof allMasterToko !== 'undefined' && Array.isArray(allMasterToko)) {
     stores = allMasterToko
       .filter(s => /\b5\b/.test(String(s.region || '')))
       .map(s => ({ code: s.plantCode, name: s.plantDesc, city: s.city || '' }));
   }
+  if (!stores.length && typeof storeLeaderDB !== 'undefined') {
+    stores = Object.entries(storeLeaderDB).map(([code, v]) => ({ code, name: v.storeName || code, city: '' }));
+  }
+  return stores;
+}
+
+// Data asli: semua toko R5 (DB Store Leader / master) + submission dari cloud
+function rvBuildReal(items) {
+  const byCode = new Map(items.map(it => [String(it.code).toUpperCase(), it]));
+  const stores = rvRegion5Stores();
+  const seen = new Set(stores.map(s => String(s.code).toUpperCase()));
+  items.forEach(it => { if (!seen.has(it.code)) stores.push({ code: it.code, name: it.storeName || it.code, city: '' }); });
+  const fmt = iso => {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+  return stores.map(s => {
+    const it = byCode.get(String(s.code).toUpperCase());
+    const sl = (typeof getSL === 'function' && getSL(s.code)) || null;
+    if (!it) return { ...s, status: 'BELUM', sl: sl ? sl.name : '', walls: [], ticket: '', time: '' };
+    return {
+      ...s, name: s.name || it.storeName,
+      status: it.status === 'REVISI' ? 'REVISI' : 'SUBMIT',
+      sl: it.nama, hp: it.hp, revisi: it.note || '',
+      ticket: it.ticket, time: fmt(it.submittedAt) + (it.version > 1 ? ` · v${it.version}` : ''),
+      walls: it.walls.map(w => ({ w: w.w, h: w.h, photos: w.photos, img: rvPhotoUrl(w.photos.depan) })),
+    };
+  });
+}
+
+function rvBuildMock() {
+  let stores = rvRegion5Stores();
   if (!stores.length) stores = RV_DUMMY_STORES.map(([code, name, city]) => ({ code, name, city }));
 
   const names = ['Andi', 'Rina', 'Budi', 'Sari', 'Dimas', 'Putri', 'Fajar', 'Lina', 'Yoga', 'Maya'];
@@ -99,7 +135,7 @@ function rvBuildRows() {
   });
 }
 
-function initRevisual() {
+async function initRevisual() {
   if (!rvInited) {
     rvInited = true;
     document.getElementById('rv-filter').addEventListener('change', rvRenderTable);
@@ -108,8 +144,20 @@ function initRevisual() {
     rvRenderPhone(0);
     document.getElementById('rv-blast-text').textContent = rvBlastText();
   }
-  rvRows = rvBuildRows();
   rvRenderHero();
+  document.getElementById('rv-table').innerHTML = '<div class="empty-state"><p>Memuat submission…</p></div>';
+  try {
+    const res = await fetch(`${RV_CONFIG.api}?list=1`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    rvRows = rvBuildReal(data.items || []);
+    rvMock = false;
+  } catch (e) {
+    console.warn('[ERA-REVISUAL] backend tidak tersedia, pakai data contoh:', e.message);
+    rvRows = rvBuildMock();
+    rvMock = true;
+  }
+  document.getElementById('rv-mock-flag').style.display = rvMock ? '' : 'none';
   rvRenderKpi();
   rvRenderTable();
 }
@@ -160,17 +208,22 @@ function rvRenderTable() {
   document.getElementById('rv-count').textContent = `${rows.length} dari ${rvRows.length} toko`;
   document.getElementById('rv-table').innerHTML = rows.length ? `
     <table>
-      <thead><tr><th>Plant Code</th><th>Toko</th><th>Store Leader</th><th>Wall</th><th>Foto</th><th>Tiket</th><th>Waktu</th><th>Status</th></tr></thead>
+      <thead><tr><th>Plant Code</th><th>Toko</th><th>Store Leader</th><th>Wall</th><th>Foto</th><th>Tiket</th><th>Waktu</th><th>Status</th><th></th></tr></thead>
       <tbody>${rows.map(r => `
         <tr>
           <td><strong>${esc(r.code)}</strong></td>
           <td>${esc(r.name)}<div class="rv-sub">${esc(r.city)}</div></td>
           <td>${esc(r.sl)}</td>
-          <td>${r.walls.length ? r.walls.map(w => `<div class="rv-wall"><b>${esc(w.type.name)}</b> ${w.w}×${w.h} cm</div>`).join('') : '<span class="rv-sub">—</span>'}</td>
-          <td><div class="rv-thumbs">${r.walls.map(w => `<img src="${w.img}" alt="" loading="lazy">`).join('')}</div></td>
+          <td>${r.walls.length ? r.walls.map(w => `<div class="rv-wall">${w.type ? `<b>${esc(w.type.name)}</b> ` : ''}${w.w}×${w.h} cm</div>`).join('') : '<span class="rv-sub">—</span>'}</td>
+          <td><div class="rv-thumbs">${r.walls.map(w => w.photos
+            ? Object.values(w.photos).map(k => `<a href="${rvPhotoUrl(k)}" target="_blank" rel="noopener"><img src="${rvPhotoUrl(k)}" alt="" loading="lazy"></a>`).join('')
+            : `<img src="${w.img}" alt="" loading="lazy">`).join('<span class="rv-sep"></span>')}</div></td>
           <td class="rv-mono">${esc(r.ticket || '—')}</td>
           <td class="rv-sub">${esc(r.time || '—')}</td>
           <td><span class="badge ${RV_STATUS[r.status].cls}">${RV_STATUS[r.status].label}</span>${r.revisi ? `<div class="rv-sub rv-warn">${esc(r.revisi)}</div>` : ''}</td>
+          <td>${!rvMock && r.status !== 'BELUM' ? (r.status === 'REVISI'
+              ? `<button class="btn btn-sm" onclick="rvReview('${esc(r.code)}','SUBMIT')">✓ OK</button>`
+              : `<button class="btn btn-sm" onclick="rvReview('${esc(r.code)}','REVISI')">✏ Revisi</button>`) : ''}</td>
         </tr>`).join('')}
       </tbody>
     </table>` : '<div class="empty-state"><p>Tidak ada toko yang cocok dengan filter.</p></div>';
@@ -242,4 +295,44 @@ function rvCopy(text, msg) {
   const done = () => typeof toast === 'function' && toast(msg);
   if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(done);
   else done();
+}
+
+// ── Admin: tandai perlu revisi / OK ────────────────────────────────
+async function rvReview(code, status) {
+  let note = '';
+  if (status === 'REVISI') {
+    note = prompt(`Alasan revisi untuk ${code}? (contoh: Foto meteran tidak terbaca)`);
+    if (note === null) return;
+  }
+  try {
+    const res = await fetch(RV_CONFIG.api, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'review', code, status, note }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'HTTP ' + res.status);
+    toast(status === 'REVISI' ? `${code} ditandai perlu revisi` : `${code} ditandai OK`);
+    initRevisual();
+  } catch (e) {
+    toast('Gagal update status: ' + e.message, 'error');
+  }
+}
+
+// ── Export Excel ──────────────────────────────────────────────────
+function rvExportExcel() {
+  if (typeof XLSX === 'undefined') { toast('Library Excel belum ter-load', 'error'); return; }
+  const origin = location.origin;
+  const rows = [['No', 'Plant Code', 'Toko', 'Pengirim', 'No. HP', 'Status', 'Catatan Revisi', 'Tiket', 'Waktu', 'Wall #', 'Lebar (cm)', 'Tinggi (cm)', 'Foto Depan', 'Foto Meteran', 'Foto Kiri', 'Foto Kanan', 'Foto Sekitar']];
+  let n = 0;
+  rvRows.forEach(r => {
+    const base = [r.code, r.name, r.sl || '', r.hp || '', RV_STATUS[r.status].label, r.revisi || '', r.ticket || '', r.time || ''];
+    if (!r.walls.length) { rows.push([++n, ...base, '', '', '', '', '', '', '', '']); return; }
+    r.walls.forEach((w, i) => {
+      const p = w.photos || {};
+      const link = k => (k ? origin + rvPhotoUrl(k) : '');
+      rows.push([++n, ...base, i + 1, w.w, w.h, link(p.depan), link(p.meteran), link(p.kiri), link(p.kanan), link(p.sekitar)]);
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Wall Branding');
+  XLSX.writeFile(wb, `ERA-REVISUAL_Wall-Branding_${new Date().toISOString().slice(0, 10)}${rvMock ? '_MOCKUP' : ''}.xlsx`);
 }

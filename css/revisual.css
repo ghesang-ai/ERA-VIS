@@ -136,3 +136,6 @@
 
 #rv-table td:nth-child(2) { min-width: 200px; }
 .rv-mono { white-space: nowrap; }
+.rv-thumbs { flex-wrap: wrap; max-width: 230px; }
+.rv-thumbs a { display: block; line-height: 0; }
+.rv-sep { width: 1px; background: var(--border2); margin: 0 3px; }
