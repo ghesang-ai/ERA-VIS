@@ -61,6 +61,15 @@
   .slot .lab { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.62); color: #fff; font-size: 11px; font-weight: 700; padding: 4px; }
   .slot .busy { position: absolute; inset: 0; background: rgba(255,255,255,.8); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--red); }
   .slot input { display: none; }
+  .types-h { font-size: 12px; font-weight: 700; color: var(--muted); margin: 2px 0 6px; }
+  .types { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .type { position: relative; border: 2px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; cursor: pointer; text-align: left; padding: 0; font: inherit; color: var(--ink); }
+  .type img { display: block; width: 100%; aspect-ratio: 3/4; object-fit: cover; object-position: center 35%; background: #eee; }
+  .type .tn { display: block; padding: 6px 8px 0; font-size: 12px; font-weight: 800; line-height: 1.25; }
+  .type .ts { display: block; padding: 1px 8px 7px; font: 700 11px var(--mono); color: var(--red); }
+  .type.on { border-color: var(--red); box-shadow: 0 0 0 3px rgba(227,6,19,.15); }
+  .type.on::after { content: '✓'; position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 13px; }
+  .types.err .type { border-color: #F3A3A8; }
   .tips { font-size: 12px; color: var(--muted); background: var(--page); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
   .tips li { margin-left: 16px; }
   .submit { width: 100%; padding: 15px; font-size: 16px; }
@@ -108,6 +117,7 @@
   <section class="card locked" id="sec-wall">
     <div class="step"><b>3</b><h2>Foto &amp; ukuran wall</h2></div>
     <ul class="tips">
+      <li>Pilih <b>jenis wall</b> yang sama dengan di toko (lihat contoh)</li>
       <li><b>Depan</b> (wajib): ambil lurus, lantai sampai plafon terlihat</li>
       <li><b>Meteran</b> (wajib): angka meteran harus terbaca</li>
       <li>Sudut kiri/kanan &amp; area sekitar: opsional</li>
@@ -146,6 +156,13 @@ const SLOTS = [
   { key: 'sekitar', t: 'Area Sekitar', h: 'Opsional' },
 ];
 
+const TYPES = [
+  { key: 'kasir',          name: 'Wallbranding Kasir', size: '80 × 130 cm',  img: '/assets/revisual/kasir-2.jpg', w: 80,  h: 130 },
+  { key: 'custom-150x190', name: 'Custom Size',        size: '150 × 190 cm', img: '/assets/revisual/custom-1.jpg', w: 150, h: 190 },
+  { key: 'custom-200x155', name: 'Custom Size',        size: '200 × 155 cm', img: '/assets/revisual/custom-1.jpg', w: 200, h: 155 },
+  { key: 'lightbox',       name: 'Lightbox',           size: 'Ukuran tbc',   img: '/assets/revisual/lightbox.jpg' },
+  { key: 'poster-table',   name: 'Poster Table',       size: '40 × 55 / 50 × 65 cm', img: '/assets/revisual/poster-table.jpg' },
+];
 const $ = id => document.getElementById(id);
 let state = { code: '', store: null, walls: [], startedAt: new Date().toISOString() };
 let busy = 0;
@@ -177,7 +194,7 @@ async function cek() {
     if (ex) {
       msg($('cek-msg'), `✓ ${r.store.storeName || code} — sudah pernah submit (tiket ${ex.ticket}). Ganti yang salah lalu Kirim, data lama akan ditimpa.`, 'warn');
       $('nama').value = ex.nama || ''; $('hp').value = ex.hp || '';
-      state.walls = ex.walls.map(w => ({ w: w.w, h: w.h, photos: { ...w.photos } }));
+      state.walls = ex.walls.map(w => ({ type: w.type || '', w: w.w, h: w.h, photos: { ...w.photos } }));
     } else {
       msg($('cek-msg'), `✓ ${r.store.storeName || code}`, 'ok');
       if (r.store.slName && !$('nama').value) $('nama').value = r.store.slName;
@@ -194,12 +211,18 @@ $('btn-cek').onclick = cek;
 $('code').addEventListener('keydown', e => { if (e.key === 'Enter') cek(); });
 
 // ── 3. Walls ──────────────────────────────────────────────────────
-function newWall() { return { w: '', h: '', photos: {} }; }
+function newWall() { return { type: '', w: '', h: '', photos: {} }; }
 
 function renderWalls() {
   $('walls').innerHTML = state.walls.map((w, i) => `
     <div class="wall">
       <div class="wall-h"><strong>Wall #${i + 1}</strong>${state.walls.length > 1 ? `<button data-rm="${i}">✕ Hapus</button>` : ''}</div>
+      <div class="types-h">Jenis wall branding * <span style="font-weight:500">— ketuk yang sama dengan di toko</span></div>
+      <div class="types" id="types-${i}">${TYPES.map(t => `
+        <button type="button" class="type ${w.type === t.key ? 'on' : ''}" data-w="${i}" data-type="${t.key}">
+          <img src="${t.img}" alt="${esc(t.name)}" loading="lazy">
+          <span class="tn">${esc(t.name)}</span><span class="ts">${esc(t.size)}</span>
+        </button>`).join('')}</div>
       <div class="slots">${SLOTS.map(s => {
         const k = w.photos[s.key];
         return `<label class="slot ${s.req ? 'req' : ''} ${k ? 'has' : ''}" data-w="${i}" data-s="${s.key}">
@@ -210,9 +233,9 @@ function renderWalls() {
       }).join('')}</div>
       <label>Ukuran (cm)</label>
       <div class="row">
-        <input type="number" inputmode="numeric" min="1" placeholder="Lebar" value="${esc(w.w)}" data-w="${i}" data-dim="w">
+        <input type="number" inputmode="numeric" min="1" placeholder="${esc(TYPES.find(t => t.key === w.type)?.w ? 'Lebar, mis. ' + TYPES.find(t => t.key === w.type).w : 'Lebar')}" value="${esc(w.w)}" data-w="${i}" data-dim="w">
         <span class="x">×</span>
-        <input type="number" inputmode="numeric" min="1" placeholder="Tinggi" value="${esc(w.h)}" data-w="${i}" data-dim="h">
+        <input type="number" inputmode="numeric" min="1" placeholder="${esc(TYPES.find(t => t.key === w.type)?.h ? 'Tinggi, mis. ' + TYPES.find(t => t.key === w.type).h : 'Tinggi')}" value="${esc(w.h)}" data-w="${i}" data-dim="h">
       </div>
     </div>`).join('');
 }
@@ -222,6 +245,8 @@ $('walls').addEventListener('input', e => {
   if (t.dataset.dim) state.walls[t.dataset.w][t.dataset.dim] = t.value;
 });
 $('walls').addEventListener('click', e => {
+  const ty = e.target.closest('[data-type]');
+  if (ty) { state.walls[ty.dataset.w].type = ty.dataset.type; renderWalls(); return; }
   const rm = e.target.closest('[data-rm]');
   if (rm) { state.walls.splice(Number(rm.dataset.rm), 1); renderWalls(); }
 });
@@ -270,6 +295,7 @@ $('btn-send').onclick = async () => {
   if (!nama) return msg(m, 'Isi Nama dulu.', 'err');
   if (hp.length < 9) return msg(m, 'No. HP belum benar.', 'err');
   for (const [i, w] of state.walls.entries()) {
+    if (!w.type) { $('types-' + i).classList.add('err'); $('types-' + i).scrollIntoView({ behavior: 'smooth', block: 'center' }); return msg(m, `Wall #${i + 1}: pilih jenis wall branding dulu.`, 'err'); }
     if (!w.photos.depan)   return msg(m, `Wall #${i + 1}: foto Depan wajib.`, 'err');
     if (!w.photos.meteran) return msg(m, `Wall #${i + 1}: foto Meteran wajib.`, 'err');
     if (!(Number(w.w) > 0 && Number(w.h) > 0)) return msg(m, `Wall #${i + 1}: isi ukuran Lebar × Tinggi.`, 'err');
@@ -278,7 +304,7 @@ $('btn-send').onclick = async () => {
   try {
     const r = await api('POST', null, {
       action: 'submit', code: state.code, nama, hp, startedAt: state.startedAt,
-      walls: state.walls.map(w => ({ w: Number(w.w), h: Number(w.h), photos: w.photos })),
+      walls: state.walls.map(w => ({ type: w.type, w: Number(w.w), h: Number(w.h), photos: w.photos })),
     });
     $('done-store').textContent = `${state.store.storeName || state.code} · ${state.walls.length} wall${r.version > 1 ? ' · data lama ditimpa' : ''}`;
     $('done-ticket').textContent = r.ticket;

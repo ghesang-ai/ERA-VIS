@@ -19,10 +19,14 @@ const RV_CONFIG = {
 const RV_TYPES = [
   { key: 'kasir',    name: 'Wallbranding Kasir',  size: '80 × 130 cm',
     note: 'Poster di dinding belakang kasir', imgs: ['assets/revisual/kasir-1.jpg', 'assets/revisual/kasir-2.jpg'] },
-  { key: 'custom',   name: 'Custom Size',         size: '150 × 190 cm · 200 × 155 cm',
+  { key: 'custom',   name: 'Custom Size',         size: '150 × 190 cm',
+    note: 'Wall besar — ukuran mengikuti dinding toko', imgs: ['assets/revisual/custom-1.jpg'] },
+  { key: 'custom2',  name: 'Custom Size',         size: '200 × 155 cm',
     note: 'Wall besar — ukuran mengikuti dinding toko', imgs: ['assets/revisual/custom-1.jpg'] },
   { key: 'lightbox', name: 'Lightbox',            size: 'tbc',
     note: 'Lightbox di pilar / area display', imgs: ['assets/revisual/lightbox.jpg'] },
+  { key: 'poster-table', name: 'Poster Table',  size: '40 × 55 / 50 × 65 cm',
+    note: 'Poster di sisi meja display', imgs: ['assets/revisual/poster-table.jpg'] },
 ];
 
 // Toko dummy — dipakai kalau master toko Region 5 belum ke-load
@@ -51,6 +55,15 @@ const RV_STATUS = {
   SUBMIT : { label: 'Sudah Submit', cls: 'badge-done' },
   REVISI : { label: 'Perlu Revisi', cls: 'badge-pending' },
   BELUM  : { label: 'Belum Submit', cls: 'badge-notdone' },
+};
+
+// Jenis wall yang dipilih di form submit → label untuk tabel
+const RV_SUB_TYPES = {
+  'kasir'          : { name: 'Kasir (80×130)' },
+  'custom-150x190' : { name: 'Custom 150×190' },
+  'custom-200x155' : { name: 'Custom 200×155' },
+  'lightbox'       : { name: 'Lightbox' },
+  'poster-table'   : { name: 'Poster Table' },
 };
 
 let rvRows = [];
@@ -102,7 +115,7 @@ function rvBuildReal(items) {
       status: it.status === 'REVISI' ? 'REVISI' : 'SUBMIT',
       sl: it.nama, hp: it.hp, revisi: it.note || '',
       ticket: it.ticket, time: fmt(it.submittedAt) + (it.version > 1 ? ` · v${it.version}` : ''),
-      walls: it.walls.map(w => ({ w: w.w, h: w.h, photos: w.photos, img: rvPhotoUrl(w.photos.depan) })),
+      walls: it.walls.map(w => ({ type: RV_SUB_TYPES[w.type] || null, w: w.w, h: w.h, photos: w.photos, img: rvPhotoUrl(w.photos.depan) })),
     };
   });
 }
@@ -321,15 +334,15 @@ async function rvReview(code, status) {
 function rvExportExcel() {
   if (typeof XLSX === 'undefined') { toast('Library Excel belum ter-load', 'error'); return; }
   const origin = location.origin;
-  const rows = [['No', 'Plant Code', 'Toko', 'Pengirim', 'No. HP', 'Status', 'Catatan Revisi', 'Tiket', 'Waktu', 'Wall #', 'Lebar (cm)', 'Tinggi (cm)', 'Foto Depan', 'Foto Meteran', 'Foto Kiri', 'Foto Kanan', 'Foto Sekitar']];
+  const rows = [['No', 'Plant Code', 'Toko', 'Pengirim', 'No. HP', 'Status', 'Catatan Revisi', 'Tiket', 'Waktu', 'Wall #', 'Jenis Wall', 'Lebar (cm)', 'Tinggi (cm)', 'Foto Depan', 'Foto Meteran', 'Foto Kiri', 'Foto Kanan', 'Foto Sekitar']];
   let n = 0;
   rvRows.forEach(r => {
     const base = [r.code, r.name, r.sl || '', r.hp || '', RV_STATUS[r.status].label, r.revisi || '', r.ticket || '', r.time || ''];
-    if (!r.walls.length) { rows.push([++n, ...base, '', '', '', '', '', '', '', '']); return; }
+    if (!r.walls.length) { rows.push([++n, ...base, '', '', '', '', '', '', '', '', '']); return; }
     r.walls.forEach((w, i) => {
       const p = w.photos || {};
       const link = k => (k ? origin + rvPhotoUrl(k) : '');
-      rows.push([++n, ...base, i + 1, w.w, w.h, link(p.depan), link(p.meteran), link(p.kiri), link(p.kanan), link(p.sekitar)]);
+      rows.push([++n, ...base, i + 1, w.type ? w.type.name : '', w.w, w.h, link(p.depan), link(p.meteran), link(p.kiri), link(p.kanan), link(p.sekitar)]);
     });
   });
   const wb = XLSX.utils.book_new();
