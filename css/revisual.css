@@ -48,7 +48,7 @@
 .rv-bar span { display: block; height: 100%; background: var(--green); border-radius: 4px; }
 
 /* Reference types */
-.rv-types { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+.rv-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 .rv-type { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; background: var(--page); }
 .rv-type-imgs { display: flex; gap: 2px; height: 170px; background: #111; }
 .rv-type-imgs img { flex: 1; min-width: 0; object-fit: cover; object-position: center 30%; }

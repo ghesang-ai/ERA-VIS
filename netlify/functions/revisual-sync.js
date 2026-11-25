@@ -35,6 +35,7 @@ const MODES = ['lambda', 'auto', 'token'];
 const SLOTS      = ['depan', 'meteran', 'kiri', 'kanan', 'sekitar'];
 const REQUIRED   = ['depan', 'meteran'];
 const MAX_WALLS  = 10;
+const TYPES      = ['kasir', 'custom-150x190', 'custom-200x155', 'lightbox', 'poster-table'];
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 
 function makeStore(mode, event, name) {
@@ -161,7 +162,9 @@ exports.handler = async (event) => {
           if (k && String(k).startsWith(`photo/${code}/`)) photos[slot] = String(k);
         }
         for (const r of REQUIRED) if (!photos[r]) return json(400, { error: `Foto ${r} wall #${i + 1} wajib diisi` });
-        walls.push({ w: Math.round(W), h: Math.round(H), photos });
+        const type = TYPES.includes(w.type) ? w.type : '';
+        if (!type) return json(400, { error: `Pilih jenis wall #${i + 1}` });
+        walls.push({ type, w: Math.round(W), h: Math.round(H), photos });
       }
 
       const result = await withStore(event, STORE_NAME, async s => {
