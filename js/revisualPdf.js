@@ -4,15 +4,15 @@
 // Dibangun langsung pakai jsPDF (teks vektor + foto JPEG), bukan
 // screenshot html2canvas, supaya teks tajam & ukuran file wajar.
 //
-// Isi PDF (A4 portrait):
+// Isi PDF (slide 16:9 landscape, 338.67 × 190.5 mm — sama dengan PowerPoint):
 //   1. Ringkasan: KPI + daftar toko Belum Submit & Perlu Revisi
-//   2. Satu bagian per toko yang sudah submit: info toko, lalu per wall
-//      jenis + ukuran + foto Depan & Meteran besar + foto opsional kecil
+//   2. Satu slide per wall dari toko yang sudah submit: foto Depan &
+//      Meteran besar di kiri, panel info + foto opsional di kanan
 // Toko yang masuk = sesuai filter status & pencarian di halaman.
 // ================================================================
 
 const RV_PDF = {
-  W: 210, H: 297, M: 12,
+  W: 338.67, H: 190.5, M: 12,
   red: [227, 6, 19], ink: [15, 23, 42], muted: [100, 116, 139],
   border: [226, 232, 240], soft: [248, 250, 252],
   green: [22, 163, 74], gold: [180, 83, 9],
@@ -84,8 +84,8 @@ async function rvExportPdf() {
 
 function rvBuildPdf(rows, submitted, imgs) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const { W, H, M } = RV_PDF;
+  const doc = new jsPDF({ unit: 'mm', format: [W, H], orientation: 'landscape', compress: true });
   const CW = W - 2 * M;
   const color = (c, kind = 'text') => kind === 'text' ? doc.setTextColor(...c) : kind === 'fill' ? doc.setFillColor(...c) : doc.setDrawColor(...c);
   const font = (size, style = 'normal', c = RV_PDF.ink) => { doc.setFont('helvetica', style); doc.setFontSize(size); color(c); };
@@ -94,27 +94,28 @@ function rvBuildPdf(rows, submitted, imgs) {
     while (t.length > 1 && doc.getTextWidth(t) > maxW) t = t.slice(0, -2) + '…';
     return t;
   };
+  const statusColor = st => st === 'SUBMIT' ? RV_PDF.green : st === 'REVISI' ? RV_PDF.gold : RV_PDF.red;
   const generated = new Date().toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   function header(sub) {
-    color(RV_PDF.red, 'fill'); doc.rect(0, 0, W, 22, 'F');
-    font(8, 'bold', [255, 255, 255]); doc.text('ERA-REVISUAL  ·  REGION 5', M, 8);
-    font(14, 'bold', [255, 255, 255]); doc.text('Revisual Wall Branding — Upgrade Terus', M, 16);
-    if (sub) { font(8.5, 'normal', [255, 230, 230]); doc.text(sub, W - M, 16, { align: 'right' }); }
+    color(RV_PDF.red, 'fill'); doc.rect(0, 0, W, 20, 'F');
+    font(8, 'bold', [255, 255, 255]); doc.text('ERA-REVISUAL  ·  REGION 5', M, 7.5);
+    font(15, 'bold', [255, 255, 255]); doc.text('Revisual Wall Branding — Upgrade Terus', M, 15.5);
+    if (sub) { font(9, 'normal', [255, 230, 230]); doc.text(sub, W - M, 15.5, { align: 'right' }); }
   }
   function footer() {
     const n = doc.getNumberOfPages();
     for (let i = 1; i <= n; i++) {
       doc.setPage(i);
       font(7.5, 'normal', RV_PDF.muted);
-      doc.text(`ERA-VIS · dibuat ${generated}${rvMock ? ' · DATA CONTOH (MOCKUP)' : ''}`, M, H - 6);
-      doc.text(`Hal. ${i} / ${n}`, W - M, H - 6, { align: 'right' });
+      doc.text(`ERA-VIS · dibuat ${generated}${rvMock ? ' · DATA CONTOH (MOCKUP)' : ''}`, M, H - 5);
+      doc.text(`Hal. ${i} / ${n}`, W - M, H - 5, { align: 'right' });
     }
   }
 
-  // ── 1. Ringkasan ─────────────────────────────────────────────────
-  header(`Deadline 27 Nov 2026`);
-  let y = 32;
+  // ── 1. Ringkasan: KPI + tabel 2 kolom ────────────────────────────
+  header('Deadline 27 Nov 2026');
+  let y = 27;
   const all = rvRows;
   const k = {
     total: all.length,
@@ -128,88 +129,105 @@ function rvBuildPdf(rows, submitted, imgs) {
     ['Belum Submit', k.bel, RV_PDF.red], ['Total Wall', k.walls, RV_PDF.ink],
     ['Progress', (k.total ? Math.round(k.sub / k.total * 100) : 0) + '%', RV_PDF.green],
   ];
-  const kw = (CW - 5 * 3) / 6;
+  const kw = (CW - 5 * 4) / 6;
   kpis.forEach(([lbl, val, c], i) => {
-    const x = M + i * (kw + 3);
-    color(RV_PDF.soft, 'fill'); color(RV_PDF.border, 'draw'); doc.roundedRect(x, y, kw, 20, 2, 2, 'FD');
-    font(6.5, 'bold', RV_PDF.muted); doc.text(lbl.toUpperCase(), x + 3, y + 6);
-    font(15, 'bold', c); doc.text(String(val), x + 3, y + 16);
+    const x = M + i * (kw + 4);
+    color(RV_PDF.soft, 'fill'); color(RV_PDF.border, 'draw'); doc.roundedRect(x, y, kw, 19, 2, 2, 'FD');
+    font(7, 'bold', RV_PDF.muted); doc.text(lbl.toUpperCase(), x + 4, y + 6);
+    font(17, 'bold', c); doc.text(String(val), x + 4, y + 15.5);
   });
-  y += 28;
+  y += 25;
 
   const f = document.getElementById('rv-filter');
   const q = document.getElementById('rv-search').value.trim();
   font(8.5, 'normal', RV_PDF.muted);
   doc.text(`Isi PDF: ${f.options[f.selectedIndex].text.replace(/[^\w ]/g, '').trim()}${q ? ` · pencarian "${q}"` : ''} — ${rows.length} toko, ${submitted.length} dengan foto.`, M, y);
-  y += 8;
+  y += 4;
 
-  // Tabel ringkas semua toko dalam PDF
-  const cols = [
-    ['No', 9], ['Plant', 16], ['Toko', 62], ['Pengirim / SL', 38], ['Wall', 24], ['Status', 37],
-  ];
-  const tableHead = () => {
-    color(RV_PDF.ink, 'fill'); doc.rect(M, y, CW, 7, 'F');
+  // Tabel dibagi 2 kolom berdampingan supaya muat banyak toko per slide
+  const GAP = 6, TW = (CW - GAP) / 2, RH = 5.6;
+  const cols = [['No', 8], ['Plant', 13], ['Toko', 62], ['Pengirim / SL', 36], ['Status', TW - 119]];
+  const drawHead = (x0, yy) => {
+    color(RV_PDF.ink, 'fill'); doc.rect(x0, yy, TW, 6.5, 'F');
     font(7.5, 'bold', [255, 255, 255]);
-    let x = M + 2; cols.forEach(([h, w]) => { doc.text(h, x, y + 4.8); x += w; });
-    y += 7;
+    let x = x0 + 2; cols.forEach(([h, w]) => { doc.text(h, x, yy + 4.4); x += w; });
   };
-  tableHead();
-  rows.forEach((r, i) => {
-    if (y > H - 18) { doc.addPage(); header('Ringkasan (lanjutan)'); y = 30; tableHead(); }
-    if (i % 2) { color(RV_PDF.soft, 'fill'); doc.rect(M, y, CW, 6.5, 'F'); }
-    const st = RV_STATUS[r.status].label + (r.revisi ? ` — ${r.revisi}` : '');
-    const wallTxt = r.walls.length ? `${r.walls.length} wall` : '—';
-    const cells = [String(i + 1), r.code, r.name, r.sl || '', wallTxt, st];
-    let x = M + 2;
-    cells.forEach((t, ci) => {
-      const c = ci === 5 ? (r.status === 'SUBMIT' ? RV_PDF.green : r.status === 'REVISI' ? RV_PDF.gold : RV_PDF.red) : RV_PDF.ink;
-      font(7.5, ci === 1 || ci === 5 ? 'bold' : 'normal', c);
-      doc.text(fit(t, cols[ci][1] - 2), x, y + 4.5);
-      x += cols[ci][1];
-    });
-    y += 6.5;
-  });
+  let idx = 0, first = true;
+  while (idx < rows.length) {
+    if (!first) { doc.addPage(); header('Ringkasan (lanjutan)'); y = 26; }
+    const top = y, perCol = Math.floor((H - 12 - top - 6.5) / RH);
+    for (let c = 0; c < 2 && idx < rows.length; c++) {
+      const x0 = M + c * (TW + GAP);
+      drawHead(x0, top);
+      let yy = top + 6.5;
+      for (let n = 0; n < perCol && idx < rows.length; n++, idx++) {
+        const r = rows[idx];
+        if (n % 2) { color(RV_PDF.soft, 'fill'); doc.rect(x0, yy, TW, RH, 'F'); }
+        const st = r.status === 'BELUM' ? 'Belum Submit'
+          : `${RV_STATUS[r.status].label} · ${r.walls.length} wall${r.revisi ? ' — ' + r.revisi : ''}`;
+        const cells = [String(idx + 1), r.code, r.name, r.sl || '', st];
+        let x = x0 + 2;
+        cells.forEach((t, ci) => {
+          font(7.2, ci === 1 || ci === 4 ? 'bold' : 'normal', ci === 4 ? statusColor(r.status) : RV_PDF.ink);
+          doc.text(fit(t, cols[ci][1] - 2), x, yy + 3.9);
+          x += cols[ci][1];
+        });
+        yy += RH;
+      }
+    }
+    first = false;
+  }
 
-  // ── 2. Detail per toko ───────────────────────────────────────────
-  const BLOCK_H = 118;               // tinggi 1 blok wall
+  // ── 2. Satu slide per wall ──────────────────────────────────────
+  const imgBox = (url, label, x, yy, bw, bh) => {
+    color(RV_PDF.soft, 'fill'); doc.rect(x, yy, bw, bh, 'F');
+    const im = url && imgs.get(url);
+    if (im) {
+      const s = Math.min(bw / im.w, bh / im.h), dw = im.w * s, dh = im.h * s;
+      doc.addImage(im.data, 'JPEG', x + (bw - dw) / 2, yy + (bh - dh) / 2, dw, dh, undefined, 'FAST');
+    } else {
+      font(8, 'normal', RV_PDF.muted); doc.text(url ? 'foto tidak tersedia' : '—', x + bw / 2, yy + bh / 2, { align: 'center' });
+    }
+    font(8, 'bold', RV_PDF.ink); doc.text(label, x, yy + bh + 4);
+  };
+
   submitted.forEach(r => {
-    doc.addPage();
-    header(`${r.code} · ${r.ticket || ''}`);
-    y = 30;
-    font(13, 'bold'); doc.text(fit(r.name, CW), M, y); y += 6;
-    font(8.5, 'normal', RV_PDF.muted);
-    doc.text(fit(`Plant ${r.code}   ·   Pengirim: ${r.sl || '-'}${r.hp ? ' (' + r.hp + ')' : ''}   ·   Tiket ${r.ticket || '-'}   ·   ${r.time || ''}`, CW), M, y); y += 5;
-    const sc = r.status === 'REVISI' ? RV_PDF.gold : RV_PDF.green;
-    font(8.5, 'bold', sc); doc.text(fit(RV_STATUS[r.status].label + (r.revisi ? ` — ${r.revisi}` : ''), CW), M, y); y += 5;
-
     r.walls.forEach((w, wi) => {
-      if (y + BLOCK_H > H - 12) { doc.addPage(); header(`${r.code} · lanjutan`); y = 30; }
-      const top = y;
-      color(RV_PDF.border, 'draw'); doc.roundedRect(M, top, CW, BLOCK_H - 4, 2, 2, 'S');
-      font(10, 'bold'); doc.text(`Wall #${wi + 1}  —  ${w.type ? w.type.name : 'Jenis tidak diisi'}`, M + 4, top + 7);
-      font(10, 'bold', RV_PDF.red); doc.text(`${w.w} × ${w.h} cm`, W - M - 4, top + 7, { align: 'right' });
+      doc.addPage();
+      header(`${r.code} · ${r.ticket || ''}`);
+      // judul toko
+      font(14, 'bold'); doc.text(fit(r.name, CW - 70), M, 29);
+      font(8.5, 'normal', RV_PDF.muted);
+      doc.text(fit(`Plant ${r.code}   ·   Pengirim: ${r.sl || '-'}${r.hp ? ' (' + r.hp + ')' : ''}   ·   Tiket ${r.ticket || '-'}   ·   ${r.time || ''}`, CW - 70), M, 35);
+      font(9, 'bold', statusColor(r.status));
+      doc.text(fit(RV_STATUS[r.status].label + (r.revisi ? ` — ${r.revisi}` : ''), 68), W - M, 29, { align: 'right' });
+      font(8.5, 'normal', RV_PDF.muted);
+      doc.text(`Wall ${wi + 1} dari ${r.walls.length}`, W - M, 35, { align: 'right' });
 
       const photos = rvWallPhotos(w);
-      const main = ['depan', 'meteran'].map(s => photos.find(p => p.slot === s)).filter(Boolean);
-      const extra = photos.filter(p => !['depan', 'meteran'].includes(p.slot));
-      const box = (p, x, yy, bw, bh) => {
-        color(RV_PDF.soft, 'fill'); doc.rect(x, yy, bw, bh, 'F');
-        const im = imgs.get(p.url);
-        if (im) {
-          const s = Math.min(bw / im.w, bh / im.h), dw = im.w * s, dh = im.h * s;
-          doc.addImage(im.data, 'JPEG', x + (bw - dw) / 2, yy + (bh - dh) / 2, dw, dh, undefined, 'FAST');
-        } else {
-          font(7.5, 'normal', RV_PDF.muted); doc.text('foto tidak tersedia', x + bw / 2, yy + bh / 2, { align: 'center' });
-        }
-        font(7.5, 'bold', RV_PDF.ink); doc.text(RV_SLOT_LABEL[p.slot] || p.slot, x, yy + bh + 3.8);
-      };
-      const mw = (CW - 8 - 4) / 2, mh = extra.length ? 68 : 96;
-      main.forEach((p, i) => box(p, M + 4 + i * (mw + 4), top + 11, mw, mh));
+      const get = slot => photos.find(p => p.slot === slot);
+      const top = 41, bottom = H - 13, ph = bottom - top - 5;
+      const leftW = 222, pw = (leftW - 5) / 2;
+      imgBox(get('depan')?.url, 'Depan', M, top, pw, ph);
+      imgBox(get('meteran')?.url, 'Meteran', M + pw + 5, top, pw, ph);
+
+      // panel kanan
+      const px = M + leftW + 6, pwid = W - M - px;
+      color(RV_PDF.border, 'draw'); color([255, 255, 255], 'fill'); doc.roundedRect(px, top, pwid, ph + 5, 2, 2, 'FD');
+      let ry = top + 8;
+      font(8, 'bold', RV_PDF.muted); doc.text(`WALL #${wi + 1}`, px + 5, ry); ry += 7;
+      font(14, 'bold'); doc.text(fit(w.type ? w.type.name : 'Jenis tidak diisi', pwid - 10), px + 5, ry); ry += 12;
+      font(7.5, 'bold', RV_PDF.muted); doc.text('UKURAN (L × T)', px + 5, ry); ry += 9;
+      font(22, 'bold', RV_PDF.red); doc.text(`${w.w} × ${w.h} cm`, px + 5, ry); ry += 12;
+
+      const extra = ['kiri', 'kanan', 'sekitar'].map(s => get(s)).filter(Boolean);
+      font(7.5, 'bold', RV_PDF.muted); doc.text('FOTO TAMBAHAN', px + 5, ry); ry += 3;
       if (extra.length) {
-        const ew = (CW - 8 - 2 * 4) / 3;
-        extra.slice(0, 3).forEach((p, i) => box(p, M + 4 + i * (ew + 4), top + 11 + mh + 7, ew, 24));
+        const tw = (pwid - 10 - 2 * 3) / 3, th = Math.min(top + ph - ry - 4, tw * 1.35);
+        extra.forEach((p, i) => imgBox(p.url, RV_SLOT_LABEL[p.slot], px + 5 + i * (tw + 3), ry, tw, th));
+      } else {
+        font(8.5, 'normal', RV_PDF.muted); doc.text('Tidak ada', px + 5, ry + 5);
       }
-      y = top + BLOCK_H;
     });
   });
 
