@@ -903,6 +903,7 @@ Link form: {link_form}</textarea></div>
                   <input type="text" id="rv-search" placeholder="Cari toko / plant code / kota...">
                   <button class="btn" onclick="initRevisual()">&#x27F3; Refresh</button>
                   <button class="btn btn-teal" onclick="rvExportExcel()">&#x2B07; Export Excel</button>
+                  <button class="btn btn-danger" id="rv-pdf-btn" onclick="rvExportPdf()" title="PDF berisi toko sesuai filter &amp; pencarian saat ini">&#x2B07; Export PDF</button>
                 </div>
                 <div class="tbl-wrap" id="rv-table"></div>
               </div>
@@ -1063,6 +1064,7 @@ Link form: {link_form}</textarea></div>
 <script src="js/vmdMaster.js"></script>
 <script src="js/vmdCompliance.js"></script>
 <script src="js/revisual.js"></script>
+<script src="js/revisualPdf.js"></script>
 
 <!-- ===== INIT ===== -->
 <script>

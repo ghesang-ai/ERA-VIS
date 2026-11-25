@@ -212,12 +212,16 @@ function rvRenderTypes() {
     </div>`).join('');
 }
 
-function rvRenderTable() {
+function rvFilteredRows() {
   const f = document.getElementById('rv-filter').value;
   const q = document.getElementById('rv-search').value.trim().toLowerCase();
-  const rows = rvRows.filter(r =>
+  return rvRows.filter(r =>
     (f === 'ALL' || r.status === f) &&
     (!q || r.code.toLowerCase().includes(q) || r.name.toLowerCase().includes(q) || (r.city || '').toLowerCase().includes(q)));
+}
+
+function rvRenderTable() {
+  const rows = rvFilteredRows();
   document.getElementById('rv-count').textContent = `${rows.length} dari ${rvRows.length} toko`;
   document.getElementById('rv-table').innerHTML = rows.length ? `
     <table>
